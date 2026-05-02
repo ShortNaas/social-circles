@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, sql, asc } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { db, contactsTable } from "@workspace/db";
 import {
   ListContactsQueryParams,
@@ -20,16 +20,27 @@ import {
 
 const router: IRouter = Router();
 
-function calcNextContactDate(tier: string, from: Date = new Date()): string {
+function defaultIntervalDays(tier: string): number {
+  if (tier === "core") return 21;
+  if (tier === "monthly") return 60;
+  return 365;
+}
+
+function calcNextContactDate(intervalDays: number, from: Date = new Date()): string {
   const d = new Date(from);
-  if (tier === "core") {
-    d.setDate(d.getDate() + 21); // 3 weeks
-  } else if (tier === "monthly") {
-    d.setMonth(d.getMonth() + 2); // 2 months
-  } else {
-    d.setFullYear(d.getFullYear() + 1); // 1 year
-  }
+  d.setDate(d.getDate() + intervalDays);
   return d.toISOString().slice(0, 10);
+}
+
+function intervalLabel(tier: string, intervalDays: number | null): string {
+  const days = intervalDays ?? defaultIntervalDays(tier);
+  if (days < 30) return `every ${days === 7 ? "1 week" : days === 14 ? "2 weeks" : "3 weeks"}`;
+  if (days < 180) {
+    const months = Math.round(days / 30);
+    return `every ${months} month${months > 1 ? "s" : ""}`;
+  }
+  if (days < 365) return "every 6 months";
+  return "every year";
 }
 
 // GET /contacts
@@ -68,15 +79,17 @@ router.post("/contacts", async (req, res): Promise<void> => {
     return;
   }
 
-  const { lastContactDate, tier } = parsed.data;
+  const { lastContactDate, tier, intervalDays } = parsed.data;
+  const effectiveInterval = intervalDays ?? defaultIntervalDays(tier);
   const nextContactDate = lastContactDate
-    ? calcNextContactDate(tier, new Date(lastContactDate))
-    : calcNextContactDate(tier);
+    ? calcNextContactDate(effectiveInterval, new Date(lastContactDate))
+    : calcNextContactDate(effectiveInterval);
 
   const [contact] = await db
     .insert(contactsTable)
     .values({
       ...parsed.data,
+      intervalDays: intervalDays ?? null,
       lastContactDate: lastContactDate ?? null,
       nextContactDate,
     })
@@ -137,7 +150,7 @@ router.get("/contacts/due", async (_req, res): Promise<void> => {
       const daysOverdue = Math.round(diffMs / (1000 * 60 * 60 * 24));
       return { ...c, daysOverdue };
     })
-    .filter((c) => c.daysOverdue >= -7) // include due in next 7 days too
+    .filter((c) => c.daysOverdue >= -7)
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   res.json(GetDueContactsResponse.parse(due));
@@ -178,22 +191,35 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Fetch existing contact to compute next date if needed
+  const [existing] = await db
+    .select()
+    .from(contactsTable)
+    .where(eq(contactsTable.id, params.data.id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
   const updates: Record<string, unknown> = { ...parsed.data };
 
-  // Recalculate next contact date if tier or lastContactDate changed
-  if (parsed.data.tier || parsed.data.lastContactDate !== undefined) {
-    const [existing] = await db
-      .select()
-      .from(contactsTable)
-      .where(eq(contactsTable.id, params.data.id));
-    if (!existing) {
-      res.status(404).json({ error: "Contact not found" });
-      return;
-    }
+  // Recalculate next contact date if tier, intervalDays, or lastContactDate changed
+  const tierChanged = parsed.data.tier != null;
+  const intervalChanged = parsed.data.intervalDays !== undefined;
+  const lastDateChanged = parsed.data.lastContactDate !== undefined;
+
+  if ((tierChanged || intervalChanged || lastDateChanged) && !parsed.data.nextContactDate) {
     const tier = parsed.data.tier ?? existing.tier;
-    const lastDate = parsed.data.lastContactDate ?? existing.lastContactDate;
-    if (lastDate && !parsed.data.nextContactDate) {
-      updates.nextContactDate = calcNextContactDate(tier, new Date(lastDate));
+    const intervalDays = intervalChanged
+      ? (parsed.data.intervalDays ?? defaultIntervalDays(tier))
+      : (existing.intervalDays ?? defaultIntervalDays(existing.tier));
+    const effectiveInterval = intervalDays;
+    const lastDate = parsed.data.lastContactDate !== undefined
+      ? parsed.data.lastContactDate
+      : existing.lastContactDate;
+    if (lastDate) {
+      updates.nextContactDate = calcNextContactDate(effectiveInterval, new Date(lastDate));
     }
   }
 
@@ -251,7 +277,8 @@ router.post("/contacts/:id/touch", async (req, res): Promise<void> => {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const nextContactDate = calcNextContactDate(existing.tier);
+  const effectiveInterval = existing.intervalDays ?? defaultIntervalDays(existing.tier);
+  const nextContactDate = calcNextContactDate(effectiveInterval);
 
   const [contact] = await db
     .update(contactsTable)
@@ -284,12 +311,7 @@ router.get("/contacts/:id/calendar.ics", async (req, res): Promise<void> => {
     ? contact.nextContactDate.replace(/-/g, "")
     : new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
-  const tierLabel =
-    contact.tier === "core"
-      ? "Core (every 3 weeks)"
-      : contact.tier === "monthly"
-        ? "Monthly (every 2 months)"
-        : "Yearly (every year)";
+  const freqLabel = intervalLabel(contact.tier, contact.intervalDays);
 
   const uid = `social-circle-${contact.id}-${nextDate}@socialcircle`;
   const now = new Date()
@@ -309,7 +331,7 @@ router.get("/contacts/:id/calendar.ics", async (req, res): Promise<void> => {
     `DTSTART;VALUE=DATE:${nextDate}`,
     `DTEND;VALUE=DATE:${nextDate}`,
     `SUMMARY:Reach out to ${contact.name}`,
-    `DESCRIPTION:Time to reach out to ${contact.name} (${contact.relationshipType}).\\nTier: ${tierLabel}${contact.notes ? `\\nNotes: ${contact.notes}` : ""}`,
+    `DESCRIPTION:Time to reach out to ${contact.name} (${contact.relationshipType}).\\nTier: ${contact.tier} — ${freqLabel}${contact.notes ? `\\nNotes: ${contact.notes}` : ""}`,
     "STATUS:CONFIRMED",
     "TRANSP:TRANSPARENT",
     "END:VEVENT",

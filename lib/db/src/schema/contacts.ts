@@ -1,4 +1,4 @@
-import { pgTable, serial, text, date, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, date, timestamp, pgEnum, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,6 +8,7 @@ export const contactsTable = pgTable("contacts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   tier: tierEnum("tier").notNull(),
+  intervalDays: integer("interval_days"),
   relationshipType: text("relationship_type").notNull(),
   lastContactDate: date("last_contact_date"),
   nextContactDate: date("next_contact_date"),

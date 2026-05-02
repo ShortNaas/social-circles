@@ -25,6 +25,8 @@ export interface Contact {
   id: number;
   name: string;
   tier: ContactTier;
+  /** Number of days between contacts. Overrides the tier default. */
+  intervalDays: number | null;
   relationshipType: string;
   lastContactDate: string | null;
   nextContactDate: string | null;
@@ -45,6 +47,8 @@ export const CreateContactBodyTier = {
 export interface CreateContactBody {
   name: string;
   tier: CreateContactBodyTier;
+  /** Number of days between contacts. Defaults to tier standard if omitted. */
+  intervalDays?: number | null;
   relationshipType: string;
   lastContactDate?: string | null;
   notes?: string | null;
@@ -62,6 +66,8 @@ export const UpdateContactBodyTier = {
 export interface UpdateContactBody {
   name?: string;
   tier?: UpdateContactBodyTier;
+  /** Number of days between contacts. */
+  intervalDays?: number | null;
   relationshipType?: string;
   lastContactDate?: string | null;
   nextContactDate?: string | null;

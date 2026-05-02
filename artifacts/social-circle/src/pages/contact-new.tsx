@@ -13,11 +13,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   relationshipType: z.string().min(1, "Relationship type is required").max(50),
   tier: z.enum(["core", "monthly", "yearly"] as const),
+  intervalDays: z.number().int().positive(),
   notes: z.string().optional(),
 });
 
@@ -36,9 +38,18 @@ export default function ContactNew() {
       name: "",
       relationshipType: "",
       tier: "monthly",
+      intervalDays: defaultIntervalDays("monthly"),
       notes: "",
     },
   });
+
+  const selectedTier = form.watch("tier");
+  const selectedInterval = form.watch("intervalDays");
+
+  const handleTierChange = (newTier: "core" | "monthly" | "yearly") => {
+    form.setValue("tier", newTier);
+    form.setValue("intervalDays", defaultIntervalDays(newTier));
+  };
 
   const onSubmit = (data: FormValues) => {
     createMutation.mutate({ 
@@ -46,8 +57,9 @@ export default function ContactNew() {
         name: data.name,
         relationshipType: data.relationshipType,
         tier: data.tier as CreateContactBodyTier,
+        intervalDays: data.intervalDays,
         notes: data.notes || null,
-        lastContactDate: new Date().toISOString(), // Default to today
+        lastContactDate: new Date().toISOString().slice(0, 10),
       } 
     }, {
       onSuccess: (newContact) => {
@@ -62,6 +74,30 @@ export default function ContactNew() {
       }
     });
   };
+
+  const tierOptions = [
+    {
+      value: "core" as const,
+      label: "Core",
+      description: "Your most essential people. Contact often.",
+      color: "border-primary/60 bg-primary/5",
+      checkedColor: "[&:has([data-state=checked])>div]:border-primary [&:has([data-state=checked])>div]:bg-primary/10",
+    },
+    {
+      value: "monthly" as const,
+      label: "Monthly",
+      description: "Important people you want to keep close.",
+      color: "border-amber-500/60 bg-amber-500/5",
+      checkedColor: "[&:has([data-state=checked])>div]:border-amber-500 [&:has([data-state=checked])>div]:bg-amber-500/10",
+    },
+    {
+      value: "yearly" as const,
+      label: "Yearly",
+      description: "Relationships worth maintaining over time.",
+      color: "border-emerald-500/60 bg-emerald-500/5",
+      checkedColor: "[&:has([data-state=checked])>div]:border-emerald-500 [&:has([data-state=checked])>div]:bg-emerald-500/10",
+    },
+  ];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -110,56 +146,65 @@ export default function ContactNew() {
                 />
               </div>
 
+              {/* Tier selector */}
               <FormField
                 control={form.control}
                 name="tier"
                 render={({ field }) => (
                   <FormItem className="space-y-4">
-                    <FormLabel className="text-foreground">Connection Intent (Tier)</FormLabel>
+                    <FormLabel className="text-foreground">Connection Tier</FormLabel>
                     <FormControl>
                       <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        onValueChange={(v) => handleTierChange(v as "core" | "monthly" | "yearly")}
+                        value={field.value}
                         className="grid grid-cols-1 sm:grid-cols-3 gap-4"
                         data-testid="radio-tier"
                       >
-                        <FormItem>
-                          <FormLabel className="[&:has([data-state=checked])>div]:border-primary [&:has([data-state=checked])>div]:bg-primary/5 cursor-pointer">
-                            <FormControl>
-                              <RadioGroupItem value="core" className="sr-only" />
-                            </FormControl>
-                            <div className="p-4 rounded-xl border border-border bg-card transition-all hover:border-primary/50 text-center space-y-1 h-full flex flex-col justify-center">
-                              <span className="block font-medium text-foreground">Core</span>
-                              <span className="block text-xs text-muted-foreground">Every 3 weeks</span>
-                              <span className="block text-xs text-muted-foreground mt-2">A-list. The people most central to your life.</span>
-                            </div>
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem>
-                          <FormLabel className="[&:has([data-state=checked])>div]:border-amber-500 [&:has([data-state=checked])>div]:bg-amber-500/5 cursor-pointer">
-                            <FormControl>
-                              <RadioGroupItem value="monthly" className="sr-only" />
-                            </FormControl>
-                            <div className="p-4 rounded-xl border border-border bg-card transition-all hover:border-amber-500/50 text-center space-y-1 h-full flex flex-col justify-center">
-                              <span className="block font-medium text-foreground">Monthly</span>
-                              <span className="block text-xs text-muted-foreground">Every 2 months</span>
-                              <span className="block text-xs text-muted-foreground mt-2">B-list. Important people you want to keep close.</span>
-                            </div>
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem>
-                          <FormLabel className="[&:has([data-state=checked])>div]:border-emerald-500 [&:has([data-state=checked])>div]:bg-emerald-500/5 cursor-pointer">
-                            <FormControl>
-                              <RadioGroupItem value="yearly" className="sr-only" />
-                            </FormControl>
-                            <div className="p-4 rounded-xl border border-border bg-card transition-all hover:border-emerald-500/50 text-center space-y-1 h-full flex flex-col justify-center">
-                              <span className="block font-medium text-foreground">Yearly</span>
-                              <span className="block text-xs text-muted-foreground">Every 6 months</span>
-                              <span className="block text-xs text-muted-foreground mt-2">C-list. Maintaining the connection over time.</span>
-                            </div>
-                          </FormLabel>
-                        </FormItem>
+                        {tierOptions.map((opt) => (
+                          <FormItem key={opt.value}>
+                            <FormLabel className={`${opt.checkedColor} cursor-pointer`}>
+                              <FormControl>
+                                <RadioGroupItem value={opt.value} className="sr-only" />
+                              </FormControl>
+                              <div className="p-4 rounded-xl border border-border bg-card transition-all hover:border-muted-foreground/40 text-center space-y-1 h-full flex flex-col justify-center">
+                                <span className="block font-semibold text-foreground">{opt.label}</span>
+                                <span className="block text-xs text-muted-foreground mt-2">{opt.description}</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                        ))}
                       </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Interval sub-picker — always visible, changes with tier */}
+              <FormField
+                control={form.control}
+                name="intervalDays"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel className="text-foreground">How often to reach out</FormLabel>
+                    <FormControl>
+                      <div className="flex flex-wrap gap-2" data-testid="interval-picker">
+                        {(TIER_INTERVALS[selectedTier] ?? []).map((opt) => (
+                          <button
+                            key={opt.days}
+                            type="button"
+                            onClick={() => field.onChange(opt.days)}
+                            data-testid={`interval-option-${opt.days}`}
+                            className={`px-4 py-2 rounded-lg text-sm border transition-all ${
+                              selectedInterval === opt.days
+                                ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
+                                : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Calendar, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
-import { getTierColor, getTierLabel } from "@/lib/tier-utils";
+import { getTierColor, getTierLabel, TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -104,16 +104,32 @@ export default function ContactDetail() {
   };
 
   const handleTierChange = (tier: string) => {
+    const newInterval = defaultIntervalDays(tier);
     updateMutation.mutate({
       id,
-      data: { tier: tier as UpdateContactBodyTier }
+      data: { tier: tier as UpdateContactBodyTier, intervalDays: newInterval }
     }, {
       onSuccess: (data) => {
         queryClient.setQueryData(getGetContactQueryKey(id), data);
         queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
-        toast({ title: `Moved to ${getTierLabel(tier)}` });
+        toast({ title: `Moved to ${getTierLabel(tier, newInterval)}` });
+      }
+    });
+  };
+
+  const handleIntervalChange = (days: number) => {
+    if (!contact) return;
+    updateMutation.mutate({
+      id,
+      data: { intervalDays: days }
+    }, {
+      onSuccess: (data) => {
+        queryClient.setQueryData(getGetContactQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
+        toast({ title: "Frequency updated" });
       }
     });
   };
@@ -204,11 +220,35 @@ export default function ContactDetail() {
                 <SelectValue placeholder="Select tier" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="core">Core (3 weeks)</SelectItem>
-                <SelectItem value="monthly">Monthly (2 months)</SelectItem>
-                <SelectItem value="yearly">Yearly (6 months)</SelectItem>
+                <SelectItem value="core">Core</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Interval chips */}
+            <div className="flex flex-wrap gap-1.5" data-testid="interval-picker-detail">
+              {(TIER_INTERVALS[contact.tier] ?? []).map((opt) => {
+                const currentInterval = contact.intervalDays ?? defaultIntervalDays(contact.tier);
+                const isActive = currentInterval === opt.days;
+                return (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    onClick={() => handleIntervalChange(opt.days)}
+                    disabled={updateMutation.isPending}
+                    data-testid={`interval-chip-${opt.days}`}
+                    className={`px-2.5 py-1 rounded-md text-xs border transition-all ${
+                      isActive
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
 
             {isEditingDetails ? (
               <Input 

@@ -26,6 +26,10 @@ export const ListContactsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullable()
+    .describe("Number of days between contacts. Overrides the tier default."),
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
@@ -41,6 +45,12 @@ export const ListContactsResponse = zod.array(ListContactsResponseItem);
 export const CreateContactBody = zod.object({
   name: zod.string(),
   tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullish()
+    .describe(
+      "Number of days between contacts. Defaults to tier standard if omitted.",
+    ),
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
@@ -86,6 +96,10 @@ export const GetContactResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullable()
+    .describe("Number of days between contacts. Overrides the tier default."),
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
@@ -104,6 +118,10 @@ export const UpdateContactParams = zod.object({
 export const UpdateContactBody = zod.object({
   name: zod.string().optional(),
   tier: zod.enum(["core", "monthly", "yearly"]).optional(),
+  intervalDays: zod
+    .number()
+    .nullish()
+    .describe("Number of days between contacts."),
   relationshipType: zod.string().optional(),
   lastContactDate: zod.coerce.date().nullish(),
   nextContactDate: zod.coerce.date().nullish(),
@@ -114,6 +132,10 @@ export const UpdateContactResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullable()
+    .describe("Number of days between contacts. Overrides the tier default."),
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
@@ -140,6 +162,10 @@ export const TouchContactResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullable()
+    .describe("Number of days between contacts. Overrides the tier default."),
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),

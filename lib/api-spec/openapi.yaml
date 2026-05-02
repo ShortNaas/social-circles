@@ -231,6 +231,10 @@ components:
         tier:
           type: string
           enum: [core, monthly, yearly]
+        intervalDays:
+          type: integer
+          nullable: true
+          description: Number of days between contacts. Overrides the tier default.
         relationshipType:
           type: string
         lastContactDate:
@@ -254,6 +258,7 @@ components:
         - id
         - name
         - tier
+        - intervalDays
         - relationshipType
         - lastContactDate
         - nextContactDate
@@ -269,6 +274,10 @@ components:
         tier:
           type: string
           enum: [core, monthly, yearly]
+        intervalDays:
+          type: integer
+          nullable: true
+          description: Number of days between contacts. Defaults to tier standard if omitted.
         relationshipType:
           type: string
         lastContactDate:
@@ -291,6 +300,10 @@ components:
         tier:
           type: string
           enum: [core, monthly, yearly]
+        intervalDays:
+          type: integer
+          nullable: true
+          description: Number of days between contacts.
         relationshipType:
           type: string
         lastContactDate:

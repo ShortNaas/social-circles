@@ -42,10 +42,14 @@ export default function Contacts() {
     });
   };
 
-  const filteredContacts = contacts?.filter(contact => 
-    contact.name.toLowerCase().includes(search.toLowerCase()) || 
-    contact.relationshipType.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredContacts = contacts?.filter(contact => {
+    const q = search.toLowerCase();
+    return (
+      contact.name.toLowerCase().includes(q) ||
+      contact.relationshipType.toLowerCase().includes(q) ||
+      (contact.notes ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
