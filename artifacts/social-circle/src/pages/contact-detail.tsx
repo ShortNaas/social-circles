@@ -11,6 +11,7 @@ import {
   UpdateContactBodyTier
 } from "@workspace/api-client-react";
 import { TouchDialog } from "@/components/touch-dialog";
+import { SnoozePopover } from "@/components/snooze-popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel, TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -246,7 +247,7 @@ export default function ContactDetail() {
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-3">
+          <div className="flex shrink-0 items-center gap-2">
             <Button 
               onClick={() => setTouchDialogOpen(true)}
               className="gap-2 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -256,6 +257,7 @@ export default function ContactDetail() {
               <CheckCircle2 className="h-5 w-5" />
               Mark Reached Out
             </Button>
+            <SnoozePopover contactId={contact.id} contactName={contact.name} />
           </div>
         </div>
 
