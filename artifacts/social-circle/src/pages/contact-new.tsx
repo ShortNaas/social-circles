@@ -74,7 +74,14 @@ export default function ContactNew() {
         queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
         setLocation(`/contacts/${newContact.id}`);
-      }
+      },
+      onError: (error) => {
+        toast({
+          title: "Failed to add contact",
+          description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      },
     });
   };
 
