@@ -9,7 +9,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR-APP-NAME.onrender.com/api/:path*"
+      "destination": "https://social-circles-api-3ism.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
