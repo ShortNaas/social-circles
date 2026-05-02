@@ -79,6 +79,8 @@ const clerkAppearance = {
     otpCodeFieldInput: "border-border/80 bg-background text-foreground",
     formFieldRow: "gap-3",
     main: "gap-6",
+    socialButtonsRoot: "!hidden",
+    dividerRow: "!hidden",
   },
 };
 
