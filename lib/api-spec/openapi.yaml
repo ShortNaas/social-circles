@@ -3,20 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Social Circle API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: contacts
+    description: Contact management
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +25,184 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      summary: List all contacts
+      parameters:
+        - name: tier
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [core, monthly, yearly]
+        - name: overdue
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      summary: Create a contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactBody"
+      responses:
+        "201":
+          description: Created contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/stats:
+    get:
+      operationId: getContactStats
+      tags: [contacts]
+      summary: Get summary stats across all tiers
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactStats"
+
+  /contacts/due:
+    get:
+      operationId: getDueContacts
+      tags: [contacts]
+      summary: Get contacts due or overdue for follow-up, sorted by urgency
+      responses:
+        "200":
+          description: Contacts due for follow-up
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DueContact"
+
+  /contacts/{id}:
+    get:
+      operationId: getContact
+      tags: [contacts]
+      summary: Get a contact by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateContact
+      tags: [contacts]
+      summary: Update a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactBody"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      summary: Delete a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /contacts/{id}/touch:
+    post:
+      operationId: touchContact
+      tags: [contacts]
+      summary: Mark contact as reached out today, recalculates next contact date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/{id}/calendar.ics:
+    get:
+      operationId: getContactCalendar
+      tags: [contacts]
+      summary: Get iCal (.ics) reminder for a contact's next follow-up
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: iCal file
+          content:
+            text/calendar:
+              schema:
+                type: string
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +213,160 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Contact:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [core, monthly, yearly]
+        relationshipType:
+          type: string
+        lastContactDate:
+          type: string
+          format: date
+          nullable: true
+        nextContactDate:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - tier
+        - relationshipType
+        - lastContactDate
+        - nextContactDate
+        - notes
+        - createdAt
+        - updatedAt
+
+    CreateContactBody:
+      type: object
+      properties:
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [core, monthly, yearly]
+        relationshipType:
+          type: string
+        lastContactDate:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - name
+        - tier
+        - relationshipType
+
+    UpdateContactBody:
+      type: object
+      properties:
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [core, monthly, yearly]
+        relationshipType:
+          type: string
+        lastContactDate:
+          type: string
+          format: date
+          nullable: true
+        nextContactDate:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ContactStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        core:
+          type: integer
+        monthly:
+          type: integer
+        yearly:
+          type: integer
+        overdueCount:
+          type: integer
+        dueThisWeek:
+          type: integer
+      required:
+        - total
+        - core
+        - monthly
+        - yearly
+        - overdueCount
+        - dueThisWeek
+
+    DueContact:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [core, monthly, yearly]
+        relationshipType:
+          type: string
+        lastContactDate:
+          type: string
+          format: date
+          nullable: true
+        nextContactDate:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        daysOverdue:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - tier
+        - relationshipType
+        - lastContactDate
+        - nextContactDate
+        - notes
+        - daysOverdue
+        - createdAt
+        - updatedAt

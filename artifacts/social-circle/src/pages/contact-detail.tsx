@@ -1,0 +1,362 @@
+import { useState, useRef, useEffect } from "react";
+import { useParams, Link, useLocation } from "wouter";
+import { 
+  useGetContact, 
+  useUpdateContact, 
+  useDeleteContact,
+  useTouchContact,
+  getGetContactQueryKey,
+  getListContactsQueryKey,
+  getGetContactStatsQueryKey,
+  getGetDueContactsQueryKey,
+  UpdateContactBodyTier
+} from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Calendar, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2 } from "lucide-react";
+import { formatRelativeDate } from "@/lib/date-utils";
+import { getTierColor, getTierLabel } from "@/lib/tier-utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function ContactDetail() {
+  const { id: idStr } = useParams();
+  const id = parseInt(idStr || "0", 10);
+  const [, setLocation] = useLocation();
+  
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [notes, setNotes] = useState("");
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editRelation, setEditRelation] = useState("");
+
+  const { data: contact, isLoading, error } = useGetContact(id, { 
+    query: { 
+      enabled: !!id, 
+      queryKey: getGetContactQueryKey(id) 
+    } 
+  });
+
+  const updateMutation = useUpdateContact();
+  const deleteMutation = useDeleteContact();
+  const touchMutation = useTouchContact();
+
+  const initializedForId = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (contact && initializedForId.current !== id) {
+      initializedForId.current = id;
+      setNotes(contact.notes || "");
+      setEditName(contact.name);
+      setEditRelation(contact.relationshipType);
+    }
+  }, [contact, id]);
+
+  const handleNotesSave = () => {
+    updateMutation.mutate({
+      id,
+      data: { notes }
+    }, {
+      onSuccess: (data) => {
+        setIsEditingNotes(false);
+        queryClient.setQueryData(getGetContactQueryKey(id), data);
+        toast({ title: "Notes saved" });
+      }
+    });
+  };
+
+  const handleDetailsSave = () => {
+    if (!editName.trim()) {
+      toast({ title: "Name cannot be empty", variant: "destructive" });
+      return;
+    }
+    updateMutation.mutate({
+      id,
+      data: { name: editName, relationshipType: editRelation }
+    }, {
+      onSuccess: (data) => {
+        setIsEditingDetails(false);
+        queryClient.setQueryData(getGetContactQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        toast({ title: "Details updated" });
+      }
+    });
+  };
+
+  const handleTierChange = (tier: string) => {
+    updateMutation.mutate({
+      id,
+      data: { tier: tier as UpdateContactBodyTier }
+    }, {
+      onSuccess: (data) => {
+        queryClient.setQueryData(getGetContactQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
+        toast({ title: `Moved to ${getTierLabel(tier)}` });
+      }
+    });
+  };
+
+  const handleTouch = () => {
+    touchMutation.mutate({ id }, {
+      onSuccess: (data) => {
+        queryClient.setQueryData(getGetContactQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
+        toast({ title: "Marked as reached out" });
+      }
+    });
+  };
+
+  const handleDelete = () => {
+    deleteMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
+        toast({ title: "Contact deleted" });
+        setLocation("/contacts");
+      }
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !contact) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-semibold mb-2">Contact not found</h2>
+        <p className="text-muted-foreground mb-6">This contact may have been deleted.</p>
+        <Link href="/contacts">
+          <Button>Return to Contacts</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Link href="/contacts" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2">
+        <ArrowLeft className="h-4 w-4" />
+        Back to contacts
+      </Link>
+
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-4 flex-1">
+          {isEditingDetails ? (
+            <div className="flex gap-2 max-w-md items-center">
+              <Input 
+                value={editName} 
+                onChange={(e) => setEditName(e.target.value)}
+                className="text-2xl font-serif font-bold h-12"
+              />
+              <Button onClick={handleDetailsSave} size="icon" disabled={updateMutation.isPending} data-testid="btn-save-name">
+                {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => { setIsEditingDetails(false); setEditName(contact.name); }}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-serif font-bold text-foreground tracking-tight" onDoubleClick={() => setIsEditingDetails(true)}>{contact.name}</h1>
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setIsEditingDetails(true)} data-testid="btn-edit-details">Edit</Button>
+            </div>
+          )}
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={contact.tier} onValueChange={handleTierChange} disabled={updateMutation.isPending}>
+              <SelectTrigger className={`w-auto h-8 text-xs font-medium border-0 shadow-none ${getTierColor(contact.tier)}`} data-testid="select-tier">
+                <SelectValue placeholder="Select tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="core">Core (3 weeks)</SelectItem>
+                <SelectItem value="monthly">Monthly (2 months)</SelectItem>
+                <SelectItem value="yearly">Yearly (6 months)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {isEditingDetails ? (
+              <Input 
+                value={editRelation} 
+                onChange={(e) => setEditRelation(e.target.value)}
+                className="h-8 max-w-[150px] text-sm"
+                placeholder="Relationship"
+              />
+            ) : (
+              <Badge variant="secondary" className="bg-muted text-muted-foreground font-normal rounded-md px-2.5 py-1 flex items-center gap-1.5 h-8">
+                <User className="h-3 w-3" />
+                {contact.relationshipType}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 gap-3">
+          <Button 
+            onClick={handleTouch}
+            disabled={touchMutation.isPending}
+            className="gap-2 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground"
+            size="lg"
+            data-testid="btn-touch-detail"
+          >
+            {touchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+            Mark Reached Out
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="shadow-sm border-border/60">
+            <CardHeader className="bg-muted/10 border-b border-border/40 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-serif font-medium flex items-center gap-2">
+                Notes & Context
+              </CardTitle>
+              {!isEditingNotes && (
+                <Button variant="ghost" size="sm" onClick={() => setIsEditingNotes(true)} data-testid="btn-edit-notes">
+                  Edit
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="p-6">
+              {isEditingNotes ? (
+                <div className="space-y-4">
+                  <Textarea 
+                    value={notes} 
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="min-h-[200px] resize-y"
+                    placeholder="Write down important details, kids' names, what you talked about last time..."
+                    data-testid="textarea-notes"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => { setIsEditingNotes(false); setNotes(contact.notes || ""); }}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleNotesSave} disabled={updateMutation.isPending} data-testid="btn-save-notes">
+                      {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Save Notes
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="prose prose-sm md:prose-base prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap min-h-[100px]"
+                  onDoubleClick={() => setIsEditingNotes(true)}
+                >
+                  {contact.notes ? contact.notes : <span className="text-muted-foreground italic">No notes yet. Double-click to add some.</span>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="shadow-sm border-border/60">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-serif font-medium">Timeline</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
+                  <Clock className="h-4 w-4" /> Last Connected
+                </p>
+                <p className="text-lg">
+                  {contact.lastContactDate ? new Date(contact.lastContactDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : 'Never'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {formatRelativeDate(contact.lastContactDate)}
+                </p>
+              </div>
+              
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
+                  <CalendarDays className="h-4 w-4" /> Next Follow-up
+                </p>
+                <p className="text-lg">
+                  {contact.nextContactDate ? new Date(contact.nextContactDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown'}
+                </p>
+                {contact.nextContactDate && (
+                  <div className="mt-3">
+                    <a 
+                      href={`/api/contacts/${contact.id}/calendar.ics`} 
+                      download
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                      data-testid="link-download-ical"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download iCal Reminder
+                    </a>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-border/60 border-destructive/20">
+            <CardContent className="p-6">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="w-full text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive gap-2" data-testid="btn-delete-contact">
+                    <Trash2 className="h-4 w-4" />
+                    Delete Contact
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove {contact.name} from your Social Circle. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
