@@ -80,6 +80,8 @@ export default function ContactDetail() {
   const [editName, setEditName] = useState("");
   const [editRelation, setEditRelation] = useState("");
   const [touchDialogOpen, setTouchDialogOpen] = useState(false);
+  const [editingBirthday, setEditingBirthday] = useState(false);
+  const [bdayValue, setBdayValue] = useState("");
 
   const { data: contact, isLoading, error } = useGetContact(id, { 
     query: { 
@@ -99,6 +101,7 @@ export default function ContactDetail() {
       setNotes(contact.notes || "");
       setEditName(contact.name);
       setEditRelation(contact.relationshipType);
+      setBdayValue(contact.birthday ?? "");
     }
   }, [contact, id]);
 
@@ -413,6 +416,57 @@ export default function ContactDetail() {
                         <Download className="h-3.5 w-3.5" /> Download iCal Reminder
                       </a>
                     </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2">
+                    🎂 Birthday
+                  </p>
+                  {editingBirthday ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="date"
+                        value={bdayValue}
+                        onChange={(e) => setBdayValue(e.target.value)}
+                        className="text-sm rounded-md border border-border bg-background px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          updateMutation.mutate(
+                            { id, data: { birthday: bdayValue || null } },
+                            {
+                              onSuccess: (data) => {
+                                queryClient.setQueryData(getGetContactQueryKey(id), data);
+                                setEditingBirthday(false);
+                                toast({ title: "Birthday saved" });
+                              },
+                            }
+                          );
+                        }}
+                        disabled={updateMutation.isPending}
+                        className="h-7 px-3"
+                      >
+                        {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setBdayValue(contact.birthday ?? ""); setEditingBirthday(false); }} className="h-7">
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : contact.birthday ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg">
+                        {new Date(`2000-${contact.birthday.slice(5)}`).toLocaleDateString(undefined, { month: "long", day: "numeric" })}
+                      </p>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setBdayValue(contact.birthday ?? ""); setEditingBirthday(true); }}>
+                        Edit
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-0 hover:text-foreground" onClick={() => setEditingBirthday(true)}>
+                      + Add birthday
+                    </Button>
                   )}
                 </div>
               </CardContent>

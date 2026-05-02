@@ -34,6 +34,7 @@ export const ListContactsResponseItem = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  birthday: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -54,6 +55,7 @@ export const CreateContactBody = zod.object({
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  birthday: zod.string().nullish(),
 });
 
 /**
@@ -104,6 +106,7 @@ export const GetContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  birthday: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -126,6 +129,7 @@ export const UpdateContactBody = zod.object({
   lastContactDate: zod.coerce.date().nullish(),
   nextContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  birthday: zod.string().nullish(),
 });
 
 export const UpdateContactResponse = zod.object({
@@ -140,6 +144,7 @@ export const UpdateContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  birthday: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

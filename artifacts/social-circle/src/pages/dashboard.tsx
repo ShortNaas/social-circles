@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetContactStats, useGetDueContacts } from "@workspace/api-client-react";
+import { useGetContactStats, useGetDueContacts, useListContacts } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,24 @@ import { getTierColor, getTierLabel } from "@/lib/tier-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TouchDialog } from "@/components/touch-dialog";
 
+function getUpcomingBirthdays(contacts: Array<{ id: number; name: string; birthday: string | null; tier: string; relationshipType: string }>, withinDays = 30) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const year = today.getFullYear();
+
+  return contacts
+    .filter((c) => c.birthday)
+    .map((c) => {
+      const [, mm, dd] = c.birthday!.split("-");
+      let bday = new Date(year, parseInt(mm) - 1, parseInt(dd));
+      if (bday < today) bday = new Date(year + 1, parseInt(mm) - 1, parseInt(dd));
+      const daysUntil = Math.round((bday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...c, birthdayDate: bday, daysUntil };
+    })
+    .filter((c) => c.daysUntil <= withinDays)
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+}
+
 interface PendingTouch {
   id: number;
   name: string;
@@ -19,7 +37,10 @@ interface PendingTouch {
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetContactStats();
   const { data: dueContacts, isLoading: dueLoading } = useGetDueContacts();
+  const { data: allContacts } = useListContacts({});
   const [pendingTouch, setPendingTouch] = useState<PendingTouch | null>(null);
+
+  const upcomingBirthdays = allContacts ? getUpcomingBirthdays(allContacts) : [];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -156,6 +177,42 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {upcomingBirthdays.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-serif font-semibold flex items-center gap-2">
+            🎂 Upcoming Birthdays
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {upcomingBirthdays.map((c) => (
+              <Link key={c.id} href={`/contacts/${c.id}`}>
+                <Card className="hover:shadow-md transition-shadow border-border/60 cursor-pointer">
+                  <div className="flex items-center gap-4 p-4">
+                    <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg">
+                      🎂
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{c.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {c.daysUntil === 0
+                          ? "Today! 🎉"
+                          : c.daysUntil === 1
+                          ? "Tomorrow"
+                          : `In ${c.daysUntil} days`}
+                        {" · "}
+                        {c.birthdayDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className={`ml-auto shrink-0 ${getTierColor(c.tier as any)}`}>
+                      {getTierLabel(c.tier)}
+                    </Badge>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {pendingTouch && (
         <TouchDialog

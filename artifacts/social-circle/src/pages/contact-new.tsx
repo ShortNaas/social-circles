@@ -21,6 +21,7 @@ const formSchema = z.object({
   tier: z.enum(["core", "monthly", "yearly"] as const),
   intervalDays: z.number().int().positive(),
   notes: z.string().optional(),
+  birthday: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -40,6 +41,7 @@ export default function ContactNew() {
       tier: "monthly",
       intervalDays: defaultIntervalDays("monthly"),
       notes: "",
+      birthday: "",
     },
   });
 
@@ -59,6 +61,7 @@ export default function ContactNew() {
         tier: data.tier as CreateContactBodyTier,
         intervalDays: data.intervalDays,
         notes: data.notes || null,
+        birthday: data.birthday || null,
         lastContactDate: new Date().toISOString().slice(0, 10),
       } 
     }, {
@@ -206,6 +209,21 @@ export default function ContactNew() {
                         ))}
                       </div>
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="birthday"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-foreground">🎂 Birthday (Optional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" className="bg-background w-auto" {...field} data-testid="input-birthday" />
+                    </FormControl>
+                    <FormDescription>Used to remind you around their birthday each year.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
