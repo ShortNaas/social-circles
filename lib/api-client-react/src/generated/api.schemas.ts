@@ -83,6 +83,11 @@ export interface ContactStats {
   dueThisWeek: number;
 }
 
+export interface CalendarToken {
+  token: string;
+  feedUrl: string;
+}
+
 export type DueContactTier =
   (typeof DueContactTier)[keyof typeof DueContactTier];
 

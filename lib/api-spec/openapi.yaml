@@ -203,6 +203,19 @@ paths:
               schema:
                 type: string
 
+  /calendar/token:
+    get:
+      operationId: getCalendarToken
+      tags: [contacts]
+      summary: Get the ICS subscription feed token and URL
+      responses:
+        "200":
+          description: Calendar feed token and subscription URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarToken"
+
 components:
   schemas:
     HealthStatus:
@@ -340,6 +353,17 @@ components:
         - yearly
         - overdueCount
         - dueThisWeek
+
+    CalendarToken:
+      type: object
+      properties:
+        token:
+          type: string
+        feedUrl:
+          type: string
+      required:
+        - token
+        - feedUrl
 
     DueContact:
       type: object

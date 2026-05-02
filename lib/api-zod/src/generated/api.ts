@@ -180,3 +180,11 @@ export const TouchContactResponse = zod.object({
 export const GetContactCalendarParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary Get the ICS subscription feed token and URL
+ */
+export const GetCalendarTokenResponse = zod.object({
+  token: zod.string(),
+  feedUrl: zod.string(),
+});

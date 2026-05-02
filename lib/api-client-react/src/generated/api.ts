@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CalendarToken,
   Contact,
   ContactStats,
   CreateContactBody,
@@ -862,6 +863,81 @@ export function useGetContactCalendar<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetContactCalendarQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the ICS subscription feed token and URL
+ */
+export const getGetCalendarTokenUrl = () => {
+  return `/api/calendar/token`;
+};
+
+export const getCalendarToken = async (
+  options?: RequestInit,
+): Promise<CalendarToken> => {
+  return customFetch<CalendarToken>(getGetCalendarTokenUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCalendarTokenQueryKey = () => {
+  return [`/api/calendar/token`] as const;
+};
+
+export const getGetCalendarTokenQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCalendarToken>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCalendarToken>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCalendarTokenQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCalendarToken>>
+  > = ({ signal }) => getCalendarToken({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCalendarToken>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCalendarTokenQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCalendarToken>>
+>;
+export type GetCalendarTokenQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the ICS subscription feed token and URL
+ */
+
+export function useGetCalendarToken<
+  TData = Awaited<ReturnType<typeof getCalendarToken>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCalendarToken>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCalendarTokenQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

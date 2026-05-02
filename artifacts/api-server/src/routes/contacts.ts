@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, asc } from "drizzle-orm";
+import crypto from "crypto";
 import { db, contactsTable } from "@workspace/db";
 import {
   ListContactsQueryParams,
@@ -16,7 +17,17 @@ import {
   GetContactResponse,
   UpdateContactResponse,
   TouchContactResponse,
+  GetCalendarTokenResponse,
 } from "@workspace/api-zod";
+
+function getCalendarFeedToken(): string {
+  const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret";
+  return crypto
+    .createHmac("sha256", secret)
+    .update("social-circle-calendar-feed-v1")
+    .digest("hex")
+    .slice(0, 40);
+}
 
 const router: IRouter = Router();
 
@@ -287,6 +298,87 @@ router.post("/contacts/:id/touch", async (req, res): Promise<void> => {
     .returning();
 
   res.json(TouchContactResponse.parse(contact));
+});
+
+// GET /calendar/token
+router.get("/calendar/token", async (req, res): Promise<void> => {
+  const token = getCalendarFeedToken();
+  const host = req.headers["x-forwarded-host"] ?? req.headers["host"] ?? "localhost";
+  const proto = req.headers["x-forwarded-proto"] ?? "https";
+  const feedUrl = `${proto}://${host}/api/calendar/feed.ics?token=${token}`;
+
+  const body = GetCalendarTokenResponse.parse({ token, feedUrl });
+  res.json(body);
+});
+
+// GET /calendar/feed.ics?token=TOKEN  (ICS subscription feed — all upcoming contacts)
+router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
+  const expected = getCalendarFeedToken();
+  if (req.query.token !== expected) {
+    res.status(401).json({ error: "Invalid or missing token" });
+    return;
+  }
+
+  const contacts = await db
+    .select()
+    .from(contactsTable)
+    .orderBy(asc(contactsTable.nextContactDate));
+
+  const now = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z/, "Z");
+
+  const events = contacts
+    .filter((c) => c.nextContactDate)
+    .map((c) => {
+      const dateStr = c.nextContactDate!.replace(/-/g, "");
+      const uid = `social-circle-${c.id}-${dateStr}@socialcircle`;
+      const freqLabel = intervalLabel(c.tier, c.intervalDays);
+      const description = [
+        `Time to reach out to ${c.name} (${c.relationshipType}).`,
+        `Tier: ${c.tier} — ${freqLabel}`,
+        c.notes ? `Notes: ${c.notes.slice(0, 200)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\\n")
+        .replace(/,/g, "\\,");
+
+      return [
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${now}`,
+        `DTSTART;VALUE=DATE:${dateStr}`,
+        `DTEND;VALUE=DATE:${dateStr}`,
+        `SUMMARY:Reach out to ${c.name}`,
+        `DESCRIPTION:${description}`,
+        "STATUS:CONFIRMED",
+        "TRANSP:TRANSPARENT",
+        "END:VEVENT",
+      ].join("\r\n");
+    });
+
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Social Circle//Follow-up Reminders//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "X-WR-CALNAME:Social Circle",
+    "X-WR-CALDESC:Your relationship follow-up reminders from Social Circle",
+    "REFRESH-INTERVAL;VALUE=DURATION:P1D",
+    "X-PUBLISHED-TTL:P1D",
+    ...events,
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store");
+  res.setHeader(
+    "Content-Disposition",
+    'attachment; filename="social-circle.ics"',
+  );
+  res.send(ics);
 });
 
 // GET /contacts/:id/calendar.ics

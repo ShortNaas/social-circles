@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Users, LayoutDashboard, PlusCircle } from "lucide-react";
+import { Users, LayoutDashboard, PlusCircle, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { CalendarSyncDialog } from "@/components/calendar-sync-dialog";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -41,6 +44,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          <button
+            onClick={() => setCalendarOpen(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+            data-testid="nav-calendar-sync"
+          >
+            <CalendarDays className="h-4 w-4" />
+            Calendar Sync
+          </button>
         </nav>
         
         <div className="p-4 border-t border-border">
@@ -56,6 +68,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 lg:p-12 overflow-y-auto">
         {children}
       </main>
+
+      <CalendarSyncDialog open={calendarOpen} onOpenChange={setCalendarOpen} />
     </div>
   );
 }
