@@ -149,14 +149,21 @@ router.post("/contacts", requireAuth, async (req, res): Promise<void> => {
     ? calcNextContactDate(effectiveInterval, new Date(lastContactDate))
     : calcNextContactDate(effectiveInterval);
 
+  const toDateStr = (d: Date | string | null | undefined): string | null =>
+    d ? (d instanceof Date ? d : new Date(d)).toISOString().slice(0, 10) : null;
+
   const [contact] = await db
     .insert(contactsTable)
     .values({
-      ...parsed.data,
-      userId: getUserId(req),
+      name: parsed.data.name,
+      tier: parsed.data.tier,
       intervalDays: intervalDays ?? null,
-      lastContactDate: lastContactDate ?? null,
+      relationshipType: parsed.data.relationshipType,
+      lastContactDate: toDateStr(lastContactDate),
       nextContactDate,
+      notes: parsed.data.notes ?? null,
+      birthday: parsed.data.birthday ?? null,
+      userId: getUserId(req),
     })
     .returning();
 
@@ -276,7 +283,7 @@ router.patch("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
 
   const [contact] = await db
     .update(contactsTable)
-    .set(updates as Parameters<typeof db.update>[0])
+    .set(updates as any)
     .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 

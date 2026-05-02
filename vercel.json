@@ -1,11 +1,15 @@
 {
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @workspace/social-circle run build",
+  "buildCommand": "pnpm install && pnpm --filter @workspace/social-circle run build",
   "outputDirectory": "artifacts/social-circle/dist/public",
   "framework": null,
+  "env": {
+    "PORT": "3000",
+    "BASE_PATH": "/"
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "[https://social-circles-api-3ism.onrender.com](https://social-circles-api-3ism.onrender.com)"
+      "destination": "https://social-circles-api-3ism.onrender.com/api:path*"
     },
     {
       "source": "/(.*)",
