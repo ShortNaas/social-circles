@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListContacts, useTouchContact, getListContactsQueryKey, getGetDueContactsQueryKey, getGetContactStatsQueryKey, ListContactsTier } from "@workspace/api-client-react";
+import { useListContacts, getListContactsQueryKey, ListContactsTier } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,40 +7,28 @@ import { Link } from "wouter";
 import { CalendarClock, CheckCircle2, User, Clock, Search, Filter } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TouchDialog } from "@/components/touch-dialog";
+
+interface PendingTouch {
+  id: number;
+  name: string;
+  notes: string | null;
+}
 
 export default function Contacts() {
   const [filterTier, setFilterTier] = useState<string>("all");
   const [search, setSearch] = useState("");
-  
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const touchMutation = useTouchContact();
+  const [pendingTouch, setPendingTouch] = useState<PendingTouch | null>(null);
 
   const tierParam = filterTier !== "all" ? filterTier as ListContactsTier : undefined;
-  
+
   const { data: contacts, isLoading } = useListContacts(
     { tier: tierParam },
     { query: { queryKey: getListContactsQueryKey({ tier: tierParam }) } }
   );
-
-  const handleTouch = (id: number, name: string) => {
-    touchMutation.mutate({ id }, {
-      onSuccess: () => {
-        toast({
-          title: "Connection noted",
-          description: `Marked as reached out to ${name}.`,
-        });
-        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey({ tier: tierParam }) });
-        queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
-      }
-    });
-  };
 
   const filteredContacts = contacts?.filter(contact => {
     const q = search.toLowerCase();
@@ -69,7 +57,7 @@ export default function Contacts() {
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or relation..."
+            placeholder="Search by name, relation, or notes..."
             className="pl-9 bg-card border-border shadow-sm focus-visible:ring-primary"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -99,7 +87,7 @@ export default function Contacts() {
                       {contact.name}
                     </Link>
                     <Badge variant="outline" className={getTierColor(contact.tier)}>
-                      {getTierLabel(contact.tier)}
+                      {getTierLabel(contact.tier, contact.intervalDays)}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mt-2">
@@ -118,9 +106,8 @@ export default function Contacts() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 sm:border-l sm:border-border sm:pl-4">
-                  <Button 
-                    onClick={() => handleTouch(contact.id, contact.name)}
-                    disabled={touchMutation.isPending}
+                  <Button
+                    onClick={() => setPendingTouch({ id: contact.id, name: contact.name, notes: contact.notes })}
                     variant="outline"
                     className="w-full sm:w-auto shadow-sm gap-2 border-border/80 hover:bg-primary/5 hover:text-primary hover:border-primary/30"
                     data-testid={`touch-contact-${contact.id}`}
@@ -139,7 +126,7 @@ export default function Contacts() {
             </div>
             <h3 className="text-lg font-medium mb-1">No contacts found</h3>
             <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
-              {search 
+              {search
                 ? `No contacts match your search for "${search}".`
                 : "You haven't added any contacts in this tier yet."}
             </p>
@@ -151,6 +138,16 @@ export default function Contacts() {
           </Card>
         )}
       </div>
+
+      {pendingTouch && (
+        <TouchDialog
+          contactId={pendingTouch.id}
+          contactName={pendingTouch.name}
+          existingNotes={pendingTouch.notes}
+          open={!!pendingTouch}
+          onOpenChange={(v) => { if (!v) setPendingTouch(null); }}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useGetContactStats, useGetDueContacts, useTouchContact, getGetContactStatsQueryKey, getGetDueContactsQueryKey, getListContactsQueryKey } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useGetContactStats, useGetDueContacts } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,30 +7,19 @@ import { Link } from "wouter";
 import { CalendarClock, AlertCircle, ArrowRight, CheckCircle2, User, Clock } from "lucide-react";
 import { formatUrgency, formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TouchDialog } from "@/components/touch-dialog";
+
+interface PendingTouch {
+  id: number;
+  name: string;
+  notes: string | null;
+}
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetContactStats();
   const { data: dueContacts, isLoading: dueLoading } = useGetDueContacts();
-  const touchMutation = useTouchContact();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const handleTouch = (id: number, name: string) => {
-    touchMutation.mutate({ id }, {
-      onSuccess: () => {
-        toast({
-          title: "Connection noted",
-          description: `Marked as reached out to ${name}.`,
-        });
-        queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
-      }
-    });
-  };
+  const [pendingTouch, setPendingTouch] = useState<PendingTouch | null>(null);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -140,9 +130,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:border-l sm:border-border sm:pl-4">
-                    <Button 
-                      onClick={() => handleTouch(contact.id, contact.name)}
-                      disabled={touchMutation.isPending}
+                    <Button
+                      onClick={() => setPendingTouch({ id: contact.id, name: contact.name, notes: contact.notes })}
                       variant="default"
                       className="w-full sm:w-auto shadow-sm gap-2"
                       data-testid={`touch-contact-${contact.id}`}
@@ -167,6 +156,16 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {pendingTouch && (
+        <TouchDialog
+          contactId={pendingTouch.id}
+          contactName={pendingTouch.name}
+          existingNotes={pendingTouch.notes}
+          open={!!pendingTouch}
+          onOpenChange={(v) => { if (!v) setPendingTouch(null); }}
+        />
+      )}
     </div>
   );
 }
