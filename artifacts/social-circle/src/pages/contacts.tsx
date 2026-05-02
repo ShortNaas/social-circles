@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TouchDialog } from "@/components/touch-dialog";
+import { SnoozePopover } from "@/components/snooze-popover";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -294,6 +295,10 @@ export default function Contacts() {
                       <CheckCircle2 className="h-4 w-4" />
                       Reached Out
                     </Button>
+                    <SnoozePopover
+                      contactId={contact.id}
+                      contactName={contact.name}
+                    />
                   </div>
                 </div>
               </Card>
