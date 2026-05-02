@@ -6,6 +6,7 @@ export const tierEnum = pgEnum("tier", ["core", "monthly", "yearly"]);
 
 export const contactsTable = pgTable("contacts", {
   id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().default(""),
   name: text("name").notNull(),
   tier: tierEnum("tier").notNull(),
   intervalDays: integer("interval_days"),

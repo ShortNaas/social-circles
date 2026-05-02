@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
-import { eq, asc } from "drizzle-orm";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { eq, asc, and } from "drizzle-orm";
 import crypto from "crypto";
+import { getAuth } from "@clerk/express";
 import { db, contactsTable } from "@workspace/db";
 import {
   ListContactsQueryParams,
@@ -20,16 +21,26 @@ import {
   GetCalendarTokenResponse,
 } from "@workspace/api-zod";
 
-function getCalendarFeedToken(): string {
-  const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret";
-  return crypto
-    .createHmac("sha256", secret)
-    .update("social-circle-calendar-feed-v1")
-    .digest("hex")
-    .slice(0, 40);
+const router: IRouter = Router();
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  (req as any).userId = userId;
+  next();
 }
 
-const router: IRouter = Router();
+function getUserId(req: Request): string {
+  return (req as any).userId as string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function defaultIntervalDays(tier: string): number {
   if (tier === "core") return 21;
@@ -54,8 +65,19 @@ function intervalLabel(tier: string, intervalDays: number | null): string {
   return "every year";
 }
 
+function getCalendarFeedToken(userId: string): string {
+  const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret";
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`social-circle-calendar-feed-v2:${userId}`)
+    .digest("hex")
+    .slice(0, 40);
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
 // GET /contacts
-router.get("/contacts", async (req, res): Promise<void> => {
+router.get("/contacts", requireAuth, async (req, res): Promise<void> => {
   const query = ListContactsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -64,26 +86,22 @@ router.get("/contacts", async (req, res): Promise<void> => {
 
   const { tier, overdue } = query.data;
   const today = new Date().toISOString().slice(0, 10);
+  const userId = getUserId(req);
 
   let contacts = await db
     .select()
     .from(contactsTable)
+    .where(eq(contactsTable.userId, userId))
     .orderBy(asc(contactsTable.nextContactDate), asc(contactsTable.name));
 
-  if (tier) {
-    contacts = contacts.filter((c) => c.tier === tier);
-  }
-  if (overdue) {
-    contacts = contacts.filter(
-      (c) => c.nextContactDate != null && c.nextContactDate <= today,
-    );
-  }
+  if (tier) contacts = contacts.filter((c) => c.tier === tier);
+  if (overdue) contacts = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today);
 
   res.json(ListContactsResponse.parse(contacts));
 });
 
 // POST /contacts
-router.post("/contacts", async (req, res): Promise<void> => {
+router.post("/contacts", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateContactBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -100,6 +118,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
     .insert(contactsTable)
     .values({
       ...parsed.data,
+      userId: getUserId(req),
       intervalDays: intervalDays ?? null,
       lastContactDate: lastContactDate ?? null,
       nextContactDate,
@@ -110,46 +129,36 @@ router.post("/contacts", async (req, res): Promise<void> => {
 });
 
 // GET /contacts/stats
-router.get("/contacts/stats", async (_req, res): Promise<void> => {
+router.get("/contacts/stats", requireAuth, async (req, res): Promise<void> => {
   const today = new Date().toISOString().slice(0, 10);
-  const weekLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-
-  const contacts = await db.select().from(contactsTable);
-
-  const core = contacts.filter((c) => c.tier === "core").length;
-  const monthly = contacts.filter((c) => c.tier === "monthly").length;
-  const yearly = contacts.filter((c) => c.tier === "yearly").length;
-  const overdueCount = contacts.filter(
-    (c) => c.nextContactDate != null && c.nextContactDate <= today,
-  ).length;
-  const dueThisWeek = contacts.filter(
-    (c) =>
-      c.nextContactDate != null &&
-      c.nextContactDate > today &&
-      c.nextContactDate <= weekLater,
-  ).length;
-
-  res.json(
-    GetContactStatsResponse.parse({
-      total: contacts.length,
-      core,
-      monthly,
-      yearly,
-      overdueCount,
-      dueThisWeek,
-    }),
-  );
-});
-
-// GET /contacts/due
-router.get("/contacts/due", async (_req, res): Promise<void> => {
-  const today = new Date().toISOString().slice(0, 10);
+  const weekLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const userId = getUserId(req);
 
   const contacts = await db
     .select()
     .from(contactsTable)
+    .where(eq(contactsTable.userId, userId));
+
+  const core = contacts.filter((c) => c.tier === "core").length;
+  const monthly = contacts.filter((c) => c.tier === "monthly").length;
+  const yearly = contacts.filter((c) => c.tier === "yearly").length;
+  const overdueCount = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today).length;
+  const dueThisWeek = contacts.filter(
+    (c) => c.nextContactDate != null && c.nextContactDate > today && c.nextContactDate <= weekLater,
+  ).length;
+
+  res.json(GetContactStatsResponse.parse({ total: contacts.length, core, monthly, yearly, overdueCount, dueThisWeek }));
+});
+
+// GET /contacts/due
+router.get("/contacts/due", requireAuth, async (req, res): Promise<void> => {
+  const today = new Date().toISOString().slice(0, 10);
+  const userId = getUserId(req);
+
+  const contacts = await db
+    .select()
+    .from(contactsTable)
+    .where(eq(contactsTable.userId, userId))
     .orderBy(asc(contactsTable.nextContactDate));
 
   const due = contacts
@@ -157,8 +166,7 @@ router.get("/contacts/due", async (_req, res): Promise<void> => {
     .map((c) => {
       const next = new Date(c.nextContactDate!);
       const todayDate = new Date(today);
-      const diffMs = todayDate.getTime() - next.getTime();
-      const daysOverdue = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      const daysOverdue = Math.round((todayDate.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
       return { ...c, daysOverdue };
     })
     .filter((c) => c.daysOverdue >= -7)
@@ -168,7 +176,7 @@ router.get("/contacts/due", async (_req, res): Promise<void> => {
 });
 
 // GET /contacts/:id
-router.get("/contacts/:id", async (req, res): Promise<void> => {
+router.get("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
   const params = GetContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -178,7 +186,7 @@ router.get("/contacts/:id", async (req, res): Promise<void> => {
   const [contact] = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.id, params.data.id));
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, getUserId(req))));
 
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -189,7 +197,7 @@ router.get("/contacts/:id", async (req, res): Promise<void> => {
 });
 
 // PATCH /contacts/:id
-router.patch("/contacts/:id", async (req, res): Promise<void> => {
+router.patch("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
   const params = UpdateContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -202,11 +210,12 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Fetch existing contact to compute next date if needed
+  const userId = getUserId(req);
+
   const [existing] = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.id, params.data.id));
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)));
 
   if (!existing) {
     res.status(404).json({ error: "Contact not found" });
@@ -215,7 +224,6 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
 
   const updates: Record<string, unknown> = { ...parsed.data };
 
-  // Recalculate next contact date if tier, intervalDays, or lastContactDate changed
   const tierChanged = parsed.data.tier != null;
   const intervalChanged = parsed.data.intervalDays !== undefined;
   const lastDateChanged = parsed.data.lastContactDate !== undefined;
@@ -225,19 +233,16 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
     const intervalDays = intervalChanged
       ? (parsed.data.intervalDays ?? defaultIntervalDays(tier))
       : (existing.intervalDays ?? defaultIntervalDays(existing.tier));
-    const effectiveInterval = intervalDays;
-    const lastDate = parsed.data.lastContactDate !== undefined
-      ? parsed.data.lastContactDate
-      : existing.lastContactDate;
+    const lastDate = parsed.data.lastContactDate !== undefined ? parsed.data.lastContactDate : existing.lastContactDate;
     if (lastDate) {
-      updates.nextContactDate = calcNextContactDate(effectiveInterval, new Date(lastDate));
+      updates.nextContactDate = calcNextContactDate(intervalDays, new Date(lastDate));
     }
   }
 
   const [contact] = await db
     .update(contactsTable)
     .set(updates as Parameters<typeof db.update>[0])
-    .where(eq(contactsTable.id, params.data.id))
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 
   if (!contact) {
@@ -249,7 +254,7 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
 });
 
 // DELETE /contacts/:id
-router.delete("/contacts/:id", async (req, res): Promise<void> => {
+router.delete("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
   const params = DeleteContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -258,7 +263,7 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
 
   const [contact] = await db
     .delete(contactsTable)
-    .where(eq(contactsTable.id, params.data.id))
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, getUserId(req))))
     .returning();
 
   if (!contact) {
@@ -270,17 +275,19 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
 });
 
 // POST /contacts/:id/touch
-router.post("/contacts/:id/touch", async (req, res): Promise<void> => {
+router.post("/contacts/:id/touch", requireAuth, async (req, res): Promise<void> => {
   const params = TouchContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const userId = getUserId(req);
+
   const [existing] = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.id, params.data.id));
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)));
 
   if (!existing) {
     res.status(404).json({ error: "Contact not found" });
@@ -294,26 +301,32 @@ router.post("/contacts/:id/touch", async (req, res): Promise<void> => {
   const [contact] = await db
     .update(contactsTable)
     .set({ lastContactDate: today, nextContactDate })
-    .where(eq(contactsTable.id, params.data.id))
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 
   res.json(TouchContactResponse.parse(contact));
 });
 
 // GET /calendar/token
-router.get("/calendar/token", async (req, res): Promise<void> => {
-  const token = getCalendarFeedToken();
+router.get("/calendar/token", requireAuth, async (req, res): Promise<void> => {
+  const userId = getUserId(req);
+  const token = getCalendarFeedToken(userId);
   const host = req.headers["x-forwarded-host"] ?? req.headers["host"] ?? "localhost";
   const proto = req.headers["x-forwarded-proto"] ?? "https";
-  const feedUrl = `${proto}://${host}/api/calendar/feed.ics?token=${token}`;
+  const feedUrl = `${proto}://${host}/api/calendar/feed.ics?uid=${encodeURIComponent(userId)}&token=${token}`;
 
-  const body = GetCalendarTokenResponse.parse({ token, feedUrl });
-  res.json(body);
+  res.json(GetCalendarTokenResponse.parse({ token, feedUrl }));
 });
 
-// GET /calendar/feed.ics?token=TOKEN  (ICS subscription feed — all upcoming contacts)
+// GET /calendar/feed.ics?uid=UID&token=TOKEN
 router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
-  const expected = getCalendarFeedToken();
+  const uid = req.query.uid as string | undefined;
+  if (!uid) {
+    res.status(401).json({ error: "Missing uid" });
+    return;
+  }
+
+  const expected = getCalendarFeedToken(uid);
   if (req.query.token !== expected) {
     res.status(401).json({ error: "Invalid or missing token" });
     return;
@@ -322,18 +335,16 @@ router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
   const contacts = await db
     .select()
     .from(contactsTable)
+    .where(eq(contactsTable.userId, uid))
     .orderBy(asc(contactsTable.nextContactDate));
 
-  const now = new Date()
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}Z/, "Z");
+  const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z/, "Z");
 
   const events = contacts
     .filter((c) => c.nextContactDate)
     .map((c) => {
       const dateStr = c.nextContactDate!.replace(/-/g, "");
-      const uid = `social-circle-${c.id}-${dateStr}@socialcircle`;
+      const uid2 = `social-circle-${c.id}-${dateStr}@socialcircle`;
       const freqLabel = intervalLabel(c.tier, c.intervalDays);
       const description = [
         `Time to reach out to ${c.name} (${c.relationshipType}).`,
@@ -346,7 +357,7 @@ router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
 
       return [
         "BEGIN:VEVENT",
-        `UID:${uid}`,
+        `UID:${uid2}`,
         `DTSTAMP:${now}`,
         `DTSTART;VALUE=DATE:${dateStr}`,
         `DTEND;VALUE=DATE:${dateStr}`,
@@ -374,15 +385,12 @@ router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
 
   res.setHeader("Content-Type", "text/calendar; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-store");
-  res.setHeader(
-    "Content-Disposition",
-    'attachment; filename="social-circle.ics"',
-  );
+  res.setHeader("Content-Disposition", 'attachment; filename="social-circle.ics"');
   res.send(ics);
 });
 
 // GET /contacts/:id/calendar.ics
-router.get("/contacts/:id/calendar.ics", async (req, res): Promise<void> => {
+router.get("/contacts/:id/calendar.ics", requireAuth, async (req, res): Promise<void> => {
   const params = GetContactCalendarParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -392,7 +400,7 @@ router.get("/contacts/:id/calendar.ics", async (req, res): Promise<void> => {
   const [contact] = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.id, params.data.id));
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, getUserId(req))));
 
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -404,12 +412,8 @@ router.get("/contacts/:id/calendar.ics", async (req, res): Promise<void> => {
     : new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
   const freqLabel = intervalLabel(contact.tier, contact.intervalDays);
-
   const uid = `social-circle-${contact.id}-${nextDate}@socialcircle`;
-  const now = new Date()
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}Z/, "Z");
+  const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z/, "Z");
 
   const ics = [
     "BEGIN:VCALENDAR",
