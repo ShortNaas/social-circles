@@ -4,13 +4,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { CalendarClock, CheckCircle2, User, Clock, Search, Filter } from "lucide-react";
+import { CalendarClock, CheckCircle2, User, Clock, Search, Filter, Download } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TouchDialog } from "@/components/touch-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface PendingTouch {
   id: number;
@@ -22,6 +23,27 @@ export default function Contacts() {
   const [filterTier, setFilterTier] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [pendingTouch, setPendingTouch] = useState<PendingTouch | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const { toast } = useToast();
+
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/contacts/export", { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "social-circle-contacts.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Export failed", description: "Could not download contacts. Please try again.", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const tierParam = filterTier !== "all" ? filterTier as ListContactsTier : undefined;
 
@@ -46,11 +68,23 @@ export default function Contacts() {
           <h1 className="text-3xl font-serif font-bold text-foreground">All Contacts</h1>
           <p className="text-muted-foreground mt-2 text-lg">Your entire circle, categorized by intention.</p>
         </div>
-        <Link href="/contacts/new">
-          <Button className="shadow-sm gap-2" data-testid="btn-add-contact">
-            Add Contact
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="shadow-sm gap-2 border-border/80"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            data-testid="btn-export-csv"
+          >
+            <Download className="h-4 w-4" />
+            {exporting ? "Exporting…" : "Export CSV"}
           </Button>
-        </Link>
+          <Link href="/contacts/new">
+            <Button className="shadow-sm gap-2" data-testid="btn-add-contact">
+              Add Contact
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center">

@@ -76,6 +76,41 @@ function getCalendarFeedToken(userId: string): string {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+// GET /contacts/export — download all contacts as a CSV file
+router.get("/contacts/export", requireAuth, async (req, res): Promise<void> => {
+  const userId = getUserId(req);
+  const contacts = await db
+    .select()
+    .from(contactsTable)
+    .where(eq(contactsTable.userId, userId))
+    .orderBy(asc(contactsTable.name));
+
+  const escape = (v: string | null | undefined) => {
+    if (v == null) return "";
+    const s = String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+
+  const header = ["Name", "Tier", "Relationship", "Interval (days)", "Last Contact", "Next Contact", "Notes"];
+  const rows = contacts.map((c) => [
+    escape(c.name),
+    escape(c.tier),
+    escape(c.relationshipType),
+    escape(c.intervalDays != null ? String(c.intervalDays) : ""),
+    escape(c.lastContactDate),
+    escape(c.nextContactDate),
+    escape(c.notes),
+  ]);
+
+  const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="social-circle-contacts.csv"');
+  res.send(csv);
+});
+
 // GET /contacts
 router.get("/contacts", requireAuth, async (req, res): Promise<void> => {
   const query = ListContactsQueryParams.safeParse(req.query);
