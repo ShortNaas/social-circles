@@ -29,12 +29,42 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel, TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+
+interface NoteEntry {
+  date: string;
+  content: string;
+}
+
+interface ParsedNotes {
+  entries: NoteEntry[];
+  freeText: string;
+}
+
+const DATED_ENTRY_RE = /^\[([^\]]+)\]\s*([\s\S]*)$/;
+
+function parseNotes(raw: string | null | undefined): ParsedNotes {
+  if (!raw?.trim()) return { entries: [], freeText: "" };
+  const chunks = raw.split(/\n\n+/);
+  const entries: NoteEntry[] = [];
+  const free: string[] = [];
+  for (const chunk of chunks) {
+    const trimmed = chunk.trim();
+    if (!trimmed) continue;
+    const m = trimmed.match(DATED_ENTRY_RE);
+    if (m) {
+      entries.push({ date: m[1], content: m[2].trim() });
+    } else {
+      free.push(trimmed);
+    }
+  }
+  return { entries, freeText: free.join("\n\n") };
+}
 
 export default function ContactDetail() {
   const { id: idStr } = useParams();
@@ -266,21 +296,25 @@ export default function ContactDetail() {
             <Card className="shadow-sm border-border/60">
               <CardHeader className="bg-muted/10 border-b border-border/40 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-serif font-medium flex items-center gap-2">
-                  Notes & Context
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  Interaction History
                 </CardTitle>
                 {!isEditingNotes && (
                   <Button variant="ghost" size="sm" onClick={() => setIsEditingNotes(true)} data-testid="btn-edit-notes">
-                    Edit
+                    Edit raw
                   </Button>
                 )}
               </CardHeader>
               <CardContent className="p-6">
                 {isEditingNotes ? (
                   <div className="space-y-4">
-                    <Textarea 
-                      value={notes} 
+                    <p className="text-xs text-muted-foreground">
+                      Each entry starting with <code className="bg-muted px-1 rounded">[Date]</code> will appear as a timeline item. Separate entries with a blank line.
+                    </p>
+                    <Textarea
+                      value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      className="min-h-[200px] resize-y"
+                      className="min-h-[200px] resize-y font-mono text-sm"
                       placeholder="Write down important details, kids' names, what you talked about last time..."
                       data-testid="textarea-notes"
                     />
@@ -290,21 +324,51 @@ export default function ContactDetail() {
                       </Button>
                       <Button onClick={handleNotesSave} disabled={updateMutation.isPending} data-testid="btn-save-notes">
                         {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        Save Notes
+                        Save
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <div 
-                    className="prose prose-sm md:prose-base prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap min-h-[100px]"
-                    onDoubleClick={() => setIsEditingNotes(true)}
-                  >
-                    {contact.notes
-                      ? contact.notes
-                      : <span className="text-muted-foreground italic">No notes yet. Double-click to add some.</span>
-                    }
-                  </div>
-                )}
+                ) : (() => {
+                  const { entries, freeText } = parseNotes(contact.notes);
+                  const hasContent = entries.length > 0 || freeText;
+                  if (!hasContent) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <p className="text-muted-foreground text-sm max-w-xs">
+                          No interactions yet. Use "Mark Reached Out" to log your first one.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-6">
+                      {freeText && (
+                        <div className="text-sm text-foreground whitespace-pre-wrap bg-muted/30 rounded-lg p-4 border border-border/40">
+                          {freeText}
+                        </div>
+                      )}
+                      {entries.length > 0 && (
+                        <div className="relative">
+                          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" aria-hidden />
+                          <div className="space-y-6">
+                            {entries.map((entry, i) => (
+                              <div key={i} className="flex gap-4 relative">
+                                <div className="mt-1 shrink-0 w-3.5 h-3.5 rounded-full bg-primary/20 border-2 border-primary/50 z-10" />
+                                <div className="flex-1 min-w-0 pb-1">
+                                  <p className="text-xs font-medium text-primary/80 mb-1.5">{entry.date}</p>
+                                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{entry.content}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
