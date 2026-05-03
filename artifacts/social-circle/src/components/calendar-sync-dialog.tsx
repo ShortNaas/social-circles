@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetCalendarToken } from "@workspace/api-client-react";
+import { useGetCalendarToken, getGetCalendarTokenQueryKey } from "@workspace/api-client-react";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,7 @@ export function CalendarSyncDialog({ open, onOpenChange }: CalendarSyncDialogPro
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading, isError, refetch, isFetching } = useGetCalendarToken({
-    query: { enabled: open, staleTime: Infinity },
+    query: { queryKey: getGetCalendarTokenQueryKey(), enabled: open, staleTime: Infinity },
   });
 
   const handleCopy = () => {

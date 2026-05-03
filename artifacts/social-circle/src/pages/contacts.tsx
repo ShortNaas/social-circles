@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useAuth } from "@clerk/react";
 import {
   useListContacts,
   getListContactsQueryKey,
@@ -19,6 +20,7 @@ import {
   Search,
   Filter,
   Download,
+  Upload,
   Loader2,
   X,
 } from "lucide-react";
@@ -45,7 +47,10 @@ export default function Contacts() {
   const [exporting, setExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   const tierParam = filterTier !== "all" ? (filterTier as ListContactsTier) : undefined;
@@ -93,7 +98,11 @@ export default function Contacts() {
   async function handleExportCsv() {
     setExporting(true);
     try {
-      const res = await fetch("/api/contacts/export", { credentials: "include" });
+      const token = await getToken();
+      const res = await fetch("/api/contacts/export", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -110,6 +119,83 @@ export default function Contacts() {
       });
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleImportCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) throw new Error("CSV has no data rows");
+
+      const header = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/[^a-z]/g, ""));
+      const nameIdx = header.findIndex((h) => h === "name");
+      const tierIdx = header.findIndex((h) => h === "tier");
+      const relIdx = header.findIndex((h) => h.includes("relation"));
+      const intervalIdx = header.findIndex((h) => h.includes("interval"));
+      const lastIdx = header.findIndex((h) => h.includes("last"));
+      const notesIdx = header.findIndex((h) => h === "notes");
+      const birthdayIdx = header.findIndex((h) => h === "birthday");
+
+      if (nameIdx === -1 || tierIdx === -1 || relIdx === -1) {
+        throw new Error("CSV must have Name, Tier, and Relationship columns");
+      }
+
+      const parseCell = (row: string[], idx: number) =>
+        idx === -1 ? "" : (row[idx] ?? "").replace(/^"|"$/g, "").trim();
+
+      const contacts = lines.slice(1).map((line) => {
+        const row = line.split(",");
+        const tier = parseCell(row, tierIdx).toLowerCase();
+        return {
+          name: parseCell(row, nameIdx),
+          tier: (["core", "monthly", "yearly"].includes(tier) ? tier : "yearly") as "core" | "monthly" | "yearly",
+          relationshipType: parseCell(row, relIdx) || "Friend",
+          intervalDays: intervalIdx !== -1 ? parseInt(parseCell(row, intervalIdx)) || null : null,
+          lastContactDate: parseCell(row, lastIdx) || null,
+          notes: notesIdx !== -1 ? parseCell(row, notesIdx) || null : null,
+          birthday: birthdayIdx !== -1 ? parseCell(row, birthdayIdx) || null : null,
+        };
+      }).filter((c) => c.name);
+
+      if (contacts.length === 0) throw new Error("No valid contacts found in CSV");
+
+      const token = await getToken();
+      const res = await fetch("/api/contacts/import", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ contacts }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? "Import failed");
+      }
+
+      const result = await res.json() as { imported: number };
+      await queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
+
+      toast({
+        title: "Import complete",
+        description: `${result.imported} contact${result.imported === 1 ? "" : "s"} imported successfully.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Import failed",
+        description: err instanceof Error ? err.message : "Could not import contacts.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -158,7 +244,25 @@ export default function Contacts() {
             Your entire circle, categorized by intention.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleImportCsv}
+            data-testid="input-import-csv"
+          />
+          <Button
+            variant="outline"
+            className="shadow-sm gap-2 border-border/80"
+            onClick={() => importInputRef.current?.click()}
+            disabled={importing}
+            data-testid="btn-import-csv"
+          >
+            <Upload className="h-4 w-4" />
+            {importing ? "Importing…" : "Import CSV"}
+          </Button>
           <Button
             variant="outline"
             className="shadow-sm gap-2 border-border/80"

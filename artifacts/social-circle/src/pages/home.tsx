@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, CalendarDays, Users, ArrowRight } from "lucide-react";
+import { Footer } from "@/components/footer";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -89,9 +90,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="text-center py-8 text-xs text-muted-foreground border-t border-border/40">
-        Social Circle — intentional relationships.
-      </footer>
+      <Footer />
     </div>
   );
 }

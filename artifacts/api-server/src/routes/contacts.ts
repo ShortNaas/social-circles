@@ -83,6 +83,51 @@ function getCalendarFeedToken(userId: string): string {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+// POST /contacts/import — bulk import contacts from a JSON array
+router.post("/contacts/import", requireAuth, wrap(async (req, res) => {
+  const userId = getUserId(req);
+  const { contacts: rows } = req.body as { contacts: unknown[] };
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "contacts must be a non-empty array" });
+    return;
+  }
+
+  const toDateStr = (d: Date | string | null | undefined): string | null =>
+    d ? (d instanceof Date ? d : new Date(d)).toISOString().slice(0, 10) : null;
+
+  const values = rows
+    .map((row: any) => {
+      const parsed = CreateContactBody.safeParse(row);
+      if (!parsed.success) return null;
+      const { tier, intervalDays, lastContactDate } = parsed.data;
+      const effectiveInterval = intervalDays ?? defaultIntervalDays(tier);
+      const nextContactDate = lastContactDate
+        ? calcNextContactDate(effectiveInterval, new Date(lastContactDate as any))
+        : calcNextContactDate(effectiveInterval);
+      return {
+        userId,
+        name: parsed.data.name,
+        tier,
+        intervalDays: intervalDays ?? null,
+        relationshipType: parsed.data.relationshipType,
+        lastContactDate: toDateStr(lastContactDate as any),
+        nextContactDate,
+        notes: parsed.data.notes ?? null,
+        birthday: parsed.data.birthday ?? null,
+      };
+    })
+    .filter(Boolean) as NonNullable<ReturnType<typeof toDateStr> extends string ? any : any>[];
+
+  if (values.length === 0) {
+    res.status(400).json({ error: "No valid contacts in import data" });
+    return;
+  }
+
+  await db.insert(contactsTable).values(values);
+  res.json({ imported: values.length });
+}));
+
 // GET /contacts/export — download all contacts as a CSV file
 router.get("/contacts/export", requireAuth, wrap(async (req, res) => {
   const userId = getUserId(req);

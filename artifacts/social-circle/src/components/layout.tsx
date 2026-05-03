@@ -5,6 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CalendarSyncDialog } from "@/components/calendar-sync-dialog";
+import { Footer } from "@/components/footer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +82,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {user && (
             <DropdownMenu>
+
               <DropdownMenuTrigger asChild>
                 <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm hover:bg-muted transition-colors group">
                   <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0 text-xs font-semibold text-primary">
@@ -113,6 +115,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </DropdownMenu>
           )}
         </div>
+        <Footer />
       </aside>
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 lg:p-12 overflow-y-auto">
