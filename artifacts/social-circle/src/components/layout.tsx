@@ -117,6 +117,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 lg:p-12 overflow-y-auto">
         {children}
+        <footer className="mt-16 pt-6 border-t border-border/40 text-center text-xs text-muted-foreground/50">
+          Made by{" "}
+          <a href="https://naas.work" target="_blank" rel="noopener noreferrer" className="hover:text-muted-foreground transition-colors">
+            naas.work
+          </a>{" "}
+          with{" "}
+          <a href="https://replit.com" target="_blank" rel="noopener noreferrer" className="hover:text-muted-foreground transition-colors">
+            Replit
+          </a>
+        </footer>
       </main>
 
       <CalendarSyncDialog open={calendarOpen} onOpenChange={setCalendarOpen} />
