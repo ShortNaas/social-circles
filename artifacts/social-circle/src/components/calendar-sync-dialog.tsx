@@ -44,7 +44,7 @@ export function CalendarSyncDialog({ open, onOpenChange }: CalendarSyncDialogPro
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading, isError, refetch, isFetching } = useGetCalendarToken({
-    query: { enabled: open, staleTime: Infinity },
+    query: { enabled: open, staleTime: Infinity, queryKey: ["calendar-token"] as const },
   });
 
   const handleCopy = () => {

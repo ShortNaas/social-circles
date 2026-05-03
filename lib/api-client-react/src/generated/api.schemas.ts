@@ -31,6 +31,11 @@ export interface Contact {
   lastContactDate: string | null;
   nextContactDate: string | null;
   notes: string | null;
+  birthday: string | null;
+  tags: string[];
+  /** Consecutive on-time touch count */
+  streak: number;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +57,8 @@ export interface CreateContactBody {
   relationshipType: string;
   lastContactDate?: string | null;
   notes?: string | null;
+  birthday?: string | null;
+  tags?: string[];
 }
 
 export type UpdateContactBodyTier =
@@ -72,6 +79,9 @@ export interface UpdateContactBody {
   lastContactDate?: string | null;
   nextContactDate?: string | null;
   notes?: string | null;
+  birthday?: string | null;
+  tags?: string[];
+  archivedAt?: string | null;
 }
 
 export interface ContactStats {
@@ -110,9 +120,49 @@ export interface DueContact {
   updatedAt: string;
 }
 
+export type InteractionType =
+  (typeof InteractionType)[keyof typeof InteractionType];
+
+export const InteractionType = {
+  call: "call",
+  email: "email",
+  coffee: "coffee",
+  message: "message",
+  video_call: "video_call",
+  other: "other",
+} as const;
+
+export interface Interaction {
+  id: number;
+  contactId: number;
+  date: string;
+  type: InteractionType;
+  notes: string | null;
+  createdAt: string;
+}
+
+export type CreateInteractionBodyType =
+  (typeof CreateInteractionBodyType)[keyof typeof CreateInteractionBodyType];
+
+export const CreateInteractionBodyType = {
+  call: "call",
+  email: "email",
+  coffee: "coffee",
+  message: "message",
+  video_call: "video_call",
+  other: "other",
+} as const;
+
+export interface CreateInteractionBody {
+  date: string;
+  type: CreateInteractionBodyType;
+  notes?: string | null;
+}
+
 export type ListContactsParams = {
   tier?: ListContactsTier;
   overdue?: boolean;
+  archived?: boolean;
 };
 
 export type ListContactsTier =

@@ -21,9 +21,11 @@ import type {
   Contact,
   ContactStats,
   CreateContactBody,
+  CreateInteractionBody,
   DueContact,
   ErrorResponse,
   HealthStatus,
+  Interaction,
   ListContactsParams,
   UpdateContactBody,
 } from "./api.schemas";
@@ -782,6 +784,433 @@ export const useTouchContact = <
   TContext
 > => {
   return useMutation(getTouchContactMutationOptions(options));
+};
+
+/**
+ * @summary Archive a contact
+ */
+export const getArchiveContactUrl = (id: number) => {
+  return `/api/contacts/${id}/archive`;
+};
+
+export const archiveContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Contact> => {
+  return customFetch<Contact>(getArchiveContactUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getArchiveContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["archiveContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveContact>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return archiveContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveContact>>
+>;
+
+export type ArchiveContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive a contact
+ */
+export const useArchiveContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getArchiveContactMutationOptions(options));
+};
+
+/**
+ * @summary Unarchive a contact
+ */
+export const getUnarchiveContactUrl = (id: number) => {
+  return `/api/contacts/${id}/unarchive`;
+};
+
+export const unarchiveContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Contact> => {
+  return customFetch<Contact>(getUnarchiveContactUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUnarchiveContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unarchiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unarchiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["unarchiveContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unarchiveContact>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unarchiveContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnarchiveContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unarchiveContact>>
+>;
+
+export type UnarchiveContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unarchive a contact
+ */
+export const useUnarchiveContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unarchiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unarchiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getUnarchiveContactMutationOptions(options));
+};
+
+/**
+ * @summary List interactions for a contact
+ */
+export const getListInteractionsUrl = (id: number) => {
+  return `/api/contacts/${id}/interactions`;
+};
+
+export const listInteractions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Interaction[]> => {
+  return customFetch<Interaction[]>(getListInteractionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListInteractionsQueryKey = (id: number) => {
+  return [`/api/contacts/${id}/interactions`] as const;
+};
+
+export const getListInteractionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInteractions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInteractions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListInteractionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listInteractions>>
+  > = ({ signal }) => listInteractions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInteractions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInteractionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInteractions>>
+>;
+export type ListInteractionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List interactions for a contact
+ */
+
+export function useListInteractions<
+  TData = Awaited<ReturnType<typeof listInteractions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInteractions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInteractionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an interaction for a contact
+ */
+export const getCreateInteractionUrl = (id: number) => {
+  return `/api/contacts/${id}/interactions`;
+};
+
+export const createInteraction = async (
+  id: number,
+  createInteractionBody: CreateInteractionBody,
+  options?: RequestInit,
+): Promise<Interaction> => {
+  return customFetch<Interaction>(getCreateInteractionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createInteractionBody),
+  });
+};
+
+export const getCreateInteractionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInteraction>>,
+    TError,
+    { id: number; data: BodyType<CreateInteractionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createInteraction>>,
+  TError,
+  { id: number; data: BodyType<CreateInteractionBody> },
+  TContext
+> => {
+  const mutationKey = ["createInteraction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createInteraction>>,
+    { id: number; data: BodyType<CreateInteractionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createInteraction(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateInteractionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createInteraction>>
+>;
+export type CreateInteractionMutationBody = BodyType<CreateInteractionBody>;
+export type CreateInteractionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an interaction for a contact
+ */
+export const useCreateInteraction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInteraction>>,
+    TError,
+    { id: number; data: BodyType<CreateInteractionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createInteraction>>,
+  TError,
+  { id: number; data: BodyType<CreateInteractionBody> },
+  TContext
+> => {
+  return useMutation(getCreateInteractionMutationOptions(options));
+};
+
+/**
+ * @summary Delete an interaction
+ */
+export const getDeleteInteractionUrl = (id: number, interactionId: number) => {
+  return `/api/contacts/${id}/interactions/${interactionId}`;
+};
+
+export const deleteInteraction = async (
+  id: number,
+  interactionId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteInteractionUrl(id, interactionId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteInteractionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInteraction>>,
+    TError,
+    { id: number; interactionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteInteraction>>,
+  TError,
+  { id: number; interactionId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteInteraction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteInteraction>>,
+    { id: number; interactionId: number }
+  > = (props) => {
+    const { id, interactionId } = props ?? {};
+
+    return deleteInteraction(id, interactionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteInteractionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteInteraction>>
+>;
+
+export type DeleteInteractionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an interaction
+ */
+export const useDeleteInteraction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInteraction>>,
+    TError,
+    { id: number; interactionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteInteraction>>,
+  TError,
+  { id: number; interactionId: number },
+  TContext
+> => {
+  return useMutation(getDeleteInteractionMutationOptions(options));
 };
 
 /**
