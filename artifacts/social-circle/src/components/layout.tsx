@@ -134,7 +134,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   className="gap-2 cursor-pointer"
                 >
                   <Mail className="h-4 w-4" />
-                  {sendingDigest ? "Sending…" : "Send test digest"}
+                  {sendingDigest ? "Sending…" : "Send digest now"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
