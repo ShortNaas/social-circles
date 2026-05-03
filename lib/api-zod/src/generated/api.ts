@@ -20,7 +20,6 @@ export const HealthCheckResponse = zod.object({
 export const ListContactsQueryParams = zod.object({
   tier: zod.enum(["core", "monthly", "yearly"]).optional(),
   overdue: zod.coerce.boolean().optional(),
-  archived: zod.coerce.boolean().optional(),
 });
 
 export const ListContactsResponseItem = zod.object({
@@ -35,10 +34,7 @@ export const ListContactsResponseItem = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.coerce.date().nullable(),
-  tags: zod.array(zod.string()),
-  streak: zod.number().describe("Consecutive on-time touch count"),
-  archivedAt: zod.coerce.date().nullable(),
+  birthday: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -59,8 +55,7 @@ export const CreateContactBody = zod.object({
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
-  birthday: zod.coerce.date().nullish(),
-  tags: zod.array(zod.string()).optional(),
+  birthday: zod.string().nullish(),
 });
 
 /**
@@ -111,10 +106,7 @@ export const GetContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.coerce.date().nullable(),
-  tags: zod.array(zod.string()),
-  streak: zod.number().describe("Consecutive on-time touch count"),
-  archivedAt: zod.coerce.date().nullable(),
+  birthday: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -137,9 +129,7 @@ export const UpdateContactBody = zod.object({
   lastContactDate: zod.coerce.date().nullish(),
   nextContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
-  birthday: zod.coerce.date().nullish(),
-  tags: zod.array(zod.string()).optional(),
-  archivedAt: zod.coerce.date().nullish(),
+  birthday: zod.string().nullish(),
 });
 
 export const UpdateContactResponse = zod.object({
@@ -154,10 +144,7 @@ export const UpdateContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.coerce.date().nullable(),
-  tags: zod.array(zod.string()),
-  streak: zod.number().describe("Consecutive on-time touch count"),
-  archivedAt: zod.coerce.date().nullable(),
+  birthday: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -188,104 +175,8 @@ export const TouchContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.coerce.date().nullable(),
-  tags: zod.array(zod.string()),
-  streak: zod.number().describe("Consecutive on-time touch count"),
-  archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
-});
-
-/**
- * @summary Archive a contact
- */
-export const ArchiveContactParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const ArchiveContactResponse = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  tier: zod.enum(["core", "monthly", "yearly"]),
-  intervalDays: zod
-    .number()
-    .nullable()
-    .describe("Number of days between contacts. Overrides the tier default."),
-  relationshipType: zod.string(),
-  lastContactDate: zod.coerce.date().nullable(),
-  nextContactDate: zod.coerce.date().nullable(),
-  notes: zod.string().nullable(),
-  birthday: zod.coerce.date().nullable(),
-  tags: zod.array(zod.string()),
-  streak: zod.number().describe("Consecutive on-time touch count"),
-  archivedAt: zod.coerce.date().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
-/**
- * @summary Unarchive a contact
- */
-export const UnarchiveContactParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const UnarchiveContactResponse = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  tier: zod.enum(["core", "monthly", "yearly"]),
-  intervalDays: zod
-    .number()
-    .nullable()
-    .describe("Number of days between contacts. Overrides the tier default."),
-  relationshipType: zod.string(),
-  lastContactDate: zod.coerce.date().nullable(),
-  nextContactDate: zod.coerce.date().nullable(),
-  notes: zod.string().nullable(),
-  birthday: zod.coerce.date().nullable(),
-  tags: zod.array(zod.string()),
-  streak: zod.number().describe("Consecutive on-time touch count"),
-  archivedAt: zod.coerce.date().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
-/**
- * @summary List interactions for a contact
- */
-export const ListInteractionsParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const ListInteractionsResponseItem = zod.object({
-  id: zod.number(),
-  contactId: zod.number(),
-  date: zod.coerce.date(),
-  type: zod.enum(["call", "email", "coffee", "message", "video_call", "other"]),
-  notes: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-});
-export const ListInteractionsResponse = zod.array(ListInteractionsResponseItem);
-
-/**
- * @summary Create an interaction for a contact
- */
-export const CreateInteractionParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const CreateInteractionBody = zod.object({
-  date: zod.coerce.date(),
-  type: zod.enum(["call", "email", "coffee", "message", "video_call", "other"]),
-  notes: zod.string().nullish(),
-});
-
-/**
- * @summary Delete an interaction
- */
-export const DeleteInteractionParams = zod.object({
-  id: zod.coerce.number(),
-  interactionId: zod.coerce.number(),
 });
 
 /**

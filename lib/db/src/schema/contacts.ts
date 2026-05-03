@@ -15,10 +15,6 @@ export const contactsTable = pgTable("contacts", {
   nextContactDate: date("next_contact_date"),
   notes: text("notes"),
   birthday: date("birthday"),
-  tags: text("tags").array().notNull().default([]),
-  streak: integer("streak").notNull().default(0),
-  lastStreakDate: date("last_streak_date"),
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
