@@ -356,6 +356,12 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
     }
   }
 
+  // Guard: if nothing to update, return existing contact as-is
+  if (Object.keys(updates).length === 0) {
+    res.json(UpdateContactResponse.parse(parseDbContact(existing)));
+    return;
+  }
+
   // Track changes to contact info fields and log history
   const historyEntries: Array<{ contactId: number; field: string; oldValue: string | null; newValue: string | null }> = [];
   for (const field of TRACKED_INFO_FIELDS) {
