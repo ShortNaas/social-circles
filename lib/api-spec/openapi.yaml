@@ -43,6 +43,11 @@ paths:
           required: false
           schema:
             type: boolean
+        - name: archived
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of contacts
@@ -165,6 +170,44 @@ paths:
         "204":
           description: Deleted
 
+  /contacts/{id}/archive:
+    post:
+      operationId: archiveContact
+      tags: [contacts]
+      summary: Archive a contact (hides from main list)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Archived contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/{id}/unarchive:
+    post:
+      operationId: unarchiveContact
+      tags: [contacts]
+      summary: Unarchive a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unarchived contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
   /contacts/{id}/touch:
     post:
       operationId: touchContact
@@ -261,6 +304,14 @@ components:
         notes:
           type: string
           nullable: true
+        birthday:
+          type: string
+          format: date
+          nullable: true
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -276,6 +327,8 @@ components:
         - lastContactDate
         - nextContactDate
         - notes
+        - birthday
+        - archivedAt
         - createdAt
         - updatedAt
 
@@ -300,6 +353,10 @@ components:
         notes:
           type: string
           nullable: true
+        birthday:
+          type: string
+          nullable: true
+          description: Birthday in YYYY-MM-DD format
       required:
         - name
         - tier
@@ -330,6 +387,10 @@ components:
         notes:
           type: string
           nullable: true
+        birthday:
+          type: string
+          nullable: true
+          description: Birthday in YYYY-MM-DD format
 
     ContactStats:
       type: object

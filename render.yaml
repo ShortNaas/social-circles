@@ -17,3 +17,29 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: DIGEST_FROM_EMAIL
+        sync: false
+      - key: APP_URL
+        sync: false
+
+  - type: cron
+    name: weekly-digest-cron
+    runtime: node
+    schedule: "0 9 * * 1"
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: >-
+      node -e "
+        const secret = process.env.CRON_SECRET;
+        const url = process.env.API_URL + '/api/digest/cron';
+        fetch(url, { method: 'POST', headers: { 'x-cron-secret': secret, 'content-type': 'application/json' } })
+          .then(r => r.json()).then(console.log).catch(console.error);
+      "
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+      - key: API_URL
+        value: https://social-circles-api-3ism.onrender.com

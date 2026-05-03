@@ -31,6 +31,8 @@ export interface Contact {
   lastContactDate: string | null;
   nextContactDate: string | null;
   notes: string | null;
+  birthday: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +54,8 @@ export interface CreateContactBody {
   relationshipType: string;
   lastContactDate?: string | null;
   notes?: string | null;
+  /** Birthday in YYYY-MM-DD format */
+  birthday?: string | null;
 }
 
 export type UpdateContactBodyTier =
@@ -72,6 +76,8 @@ export interface UpdateContactBody {
   lastContactDate?: string | null;
   nextContactDate?: string | null;
   notes?: string | null;
+  /** Birthday in YYYY-MM-DD format */
+  birthday?: string | null;
 }
 
 export interface ContactStats {
@@ -113,6 +119,7 @@ export interface DueContact {
 export type ListContactsParams = {
   tier?: ListContactsTier;
   overdue?: boolean;
+  archived?: boolean;
 };
 
 export type ListContactsTier =

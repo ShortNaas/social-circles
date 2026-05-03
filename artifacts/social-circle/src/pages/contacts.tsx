@@ -23,6 +23,8 @@ import {
   Upload,
   Loader2,
   X,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
@@ -42,6 +44,7 @@ interface PendingTouch {
 
 export default function Contacts() {
   const [filterTier, setFilterTier] = useState<string>("all");
+  const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [pendingTouch, setPendingTouch] = useState<PendingTouch | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -53,11 +56,12 @@ export default function Contacts() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
-  const tierParam = filterTier !== "all" ? (filterTier as ListContactsTier) : undefined;
+  const tierParam = !showArchived && filterTier !== "all" ? (filterTier as ListContactsTier) : undefined;
+  const archivedParam = showArchived ? true : undefined;
 
   const { data: contacts, isLoading } = useListContacts(
-    { tier: tierParam },
-    { query: { queryKey: getListContactsQueryKey({ tier: tierParam }) } }
+    { tier: tierParam, archived: archivedParam },
+    { query: { queryKey: getListContactsQueryKey({ tier: tierParam, archived: archivedParam }) } }
   );
 
   const filteredContacts = contacts?.filter((contact) => {
@@ -204,12 +208,13 @@ export default function Contacts() {
     setBulkLoading(true);
     const ids = Array.from(selectedIds);
     try {
+      const token = await getToken();
       await Promise.all(
         ids.map((id) =>
           fetch(`/api/contacts/${id}/touch`, {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
             body: JSON.stringify({}),
           })
         )
@@ -222,6 +227,42 @@ export default function Contacts() {
       toast({
         title: "All caught up!",
         description: `Marked ${ids.length} contact${ids.length === 1 ? "" : "s"} as reached out.`,
+      });
+      setSelectedIds(new Set());
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Some contacts may not have been updated. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function handleBulkArchive() {
+    if (selectedIds.size === 0 || bulkLoading) return;
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const action = showArchived ? "unarchive" : "archive";
+    try {
+      const token = await getToken();
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/contacts/${id}/${action}`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          })
+        )
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() }),
+      ]);
+      toast({
+        title: showArchived ? "Contacts restored" : "Contacts archived",
+        description: `${ids.length} contact${ids.length === 1 ? "" : "s"} ${showArchived ? "restored to your circle" : "moved to archive"}.`,
       });
       setSelectedIds(new Set());
     } catch {
@@ -292,18 +333,29 @@ export default function Contacts() {
             data-testid="input-search-contacts"
           />
         </div>
-        <Tabs
-          value={filterTier}
-          onValueChange={(v) => { setFilterTier(v); setSelectedIds(new Set()); }}
-          className="w-full sm:w-auto"
+        {!showArchived && (
+          <Tabs
+            value={filterTier}
+            onValueChange={(v) => { setFilterTier(v); setSelectedIds(new Set()); }}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="bg-card border border-border">
+              <TabsTrigger value="all" data-testid="filter-tier-all">All</TabsTrigger>
+              <TabsTrigger value="core" data-testid="filter-tier-core">Core</TabsTrigger>
+              <TabsTrigger value="monthly" data-testid="filter-tier-monthly">Monthly</TabsTrigger>
+              <TabsTrigger value="yearly" data-testid="filter-tier-yearly">Yearly</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+        <Button
+          variant={showArchived ? "secondary" : "outline"}
+          className="gap-2 border-border/80 shrink-0"
+          onClick={() => { setShowArchived((v) => !v); setSelectedIds(new Set()); }}
+          data-testid="btn-toggle-archived"
         >
-          <TabsList className="bg-card border border-border">
-            <TabsTrigger value="all" data-testid="filter-tier-all">All</TabsTrigger>
-            <TabsTrigger value="core" data-testid="filter-tier-core">Core</TabsTrigger>
-            <TabsTrigger value="monthly" data-testid="filter-tier-monthly">Monthly</TabsTrigger>
-            <TabsTrigger value="yearly" data-testid="filter-tier-yearly">Yearly</TabsTrigger>
-          </TabsList>
-        </Tabs>
+          {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+          {showArchived ? "Back to Contacts" : "Archived"}
+        </Button>
       </div>
 
       {filteredContacts && filteredContacts.length > 0 && (
@@ -384,25 +436,51 @@ export default function Contacts() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:border-l sm:border-border sm:pl-4">
-                    <Button
-                      onClick={() =>
-                        setPendingTouch({
-                          id: contact.id,
-                          name: contact.name,
-                          notes: contact.notes,
-                        })
-                      }
-                      variant="outline"
-                      className="w-full sm:w-auto shadow-sm gap-2 border-border/80 hover:bg-primary/5 hover:text-primary hover:border-primary/30"
-                      data-testid={`touch-contact-${contact.id}`}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Reached Out
-                    </Button>
-                    <SnoozePopover
-                      contactId={contact.id}
-                      contactName={contact.name}
-                    />
+                    {showArchived ? (
+                      <Button
+                        onClick={async () => {
+                          const token = await getToken();
+                          await fetch(`/api/contacts/${contact.id}/unarchive`, {
+                            method: "POST",
+                            credentials: "include",
+                            headers: token ? { Authorization: `Bearer ${token}` } : {},
+                          });
+                          await Promise.all([
+                            queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() }),
+                            queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() }),
+                          ]);
+                          toast({ title: "Contact restored to your circle" });
+                        }}
+                        variant="outline"
+                        className="w-full sm:w-auto shadow-sm gap-2 border-border/80"
+                        data-testid={`unarchive-contact-${contact.id}`}
+                      >
+                        <ArchiveRestore className="h-4 w-4" />
+                        Restore
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={() =>
+                            setPendingTouch({
+                              id: contact.id,
+                              name: contact.name,
+                              notes: contact.notes,
+                            })
+                          }
+                          variant="outline"
+                          className="w-full sm:w-auto shadow-sm gap-2 border-border/80 hover:bg-primary/5 hover:text-primary hover:border-primary/30"
+                          data-testid={`touch-contact-${contact.id}`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          Reached Out
+                        </Button>
+                        <SnoozePopover
+                          contactId={contact.id}
+                          contactName={contact.name}
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -435,19 +513,37 @@ export default function Contacts() {
               {selectedIds.size} selected
             </span>
             <div className="w-px h-5 bg-background/20" />
+            {!showArchived && (
+              <Button
+                size="sm"
+                onClick={handleBulkReachedOut}
+                disabled={bulkLoading}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 rounded-xl h-8 px-4"
+                data-testid="btn-bulk-reached-out"
+              >
+                {bulkLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+                {bulkLoading ? "Marking…" : "Mark Reached Out"}
+              </Button>
+            )}
             <Button
               size="sm"
-              onClick={handleBulkReachedOut}
+              onClick={handleBulkArchive}
               disabled={bulkLoading}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 rounded-xl h-8 px-4"
-              data-testid="btn-bulk-reached-out"
+              className="bg-background/10 text-background hover:bg-background/20 gap-2 rounded-xl h-8 px-4 border border-background/20"
+              data-testid="btn-bulk-archive"
             >
               {bulkLoading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : showArchived ? (
+                <ArchiveRestore className="h-3.5 w-3.5" />
               ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
+                <Archive className="h-3.5 w-3.5" />
               )}
-              {bulkLoading ? "Marking…" : "Mark Reached Out"}
+              {bulkLoading ? "Working…" : showArchived ? "Restore" : "Archive"}
             </Button>
             <button
               onClick={clearSelection}

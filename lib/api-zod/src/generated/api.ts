@@ -20,6 +20,7 @@ export const HealthCheckResponse = zod.object({
 export const ListContactsQueryParams = zod.object({
   tier: zod.enum(["core", "monthly", "yearly"]).optional(),
   overdue: zod.coerce.boolean().optional(),
+  archived: zod.coerce.boolean().optional(),
 });
 
 export const ListContactsResponseItem = zod.object({
@@ -34,7 +35,8 @@ export const ListContactsResponseItem = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.string().nullable(),
+  birthday: zod.coerce.date().nullable(),
+  archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -55,7 +57,7 @@ export const CreateContactBody = zod.object({
   relationshipType: zod.string(),
   lastContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
-  birthday: zod.string().nullish(),
+  birthday: zod.string().nullish().describe("Birthday in YYYY-MM-DD format"),
 });
 
 /**
@@ -106,7 +108,8 @@ export const GetContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.string().nullable(),
+  birthday: zod.coerce.date().nullable(),
+  archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -129,7 +132,7 @@ export const UpdateContactBody = zod.object({
   lastContactDate: zod.coerce.date().nullish(),
   nextContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
-  birthday: zod.string().nullish(),
+  birthday: zod.string().nullish().describe("Birthday in YYYY-MM-DD format"),
 });
 
 export const UpdateContactResponse = zod.object({
@@ -144,7 +147,8 @@ export const UpdateContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
-  birthday: zod.string().nullable(),
+  birthday: zod.coerce.date().nullable(),
+  archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -154,6 +158,56 @@ export const UpdateContactResponse = zod.object({
  */
 export const DeleteContactParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Archive a contact (hides from main list)
+ */
+export const ArchiveContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ArchiveContactResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullable()
+    .describe("Number of days between contacts. Overrides the tier default."),
+  relationshipType: zod.string(),
+  lastContactDate: zod.coerce.date().nullable(),
+  nextContactDate: zod.coerce.date().nullable(),
+  notes: zod.string().nullable(),
+  birthday: zod.coerce.date().nullable(),
+  archivedAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Unarchive a contact
+ */
+export const UnarchiveContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UnarchiveContactResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  tier: zod.enum(["core", "monthly", "yearly"]),
+  intervalDays: zod
+    .number()
+    .nullable()
+    .describe("Number of days between contacts. Overrides the tier default."),
+  relationshipType: zod.string(),
+  lastContactDate: zod.coerce.date().nullable(),
+  nextContactDate: zod.coerce.date().nullable(),
+  notes: zod.string().nullable(),
+  birthday: zod.coerce.date().nullable(),
+  archivedAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 /**
@@ -175,6 +229,8 @@ export const TouchContactResponse = zod.object({
   lastContactDate: zod.coerce.date().nullable(),
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  birthday: zod.coerce.date().nullable(),
+  archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

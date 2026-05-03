@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, isNull, isNotNull } from "drizzle-orm";
 import crypto from "crypto";
 import { getAuth } from "@clerk/express";
 import { db, contactsTable } from "@workspace/db";
@@ -134,7 +134,7 @@ router.get("/contacts/export", requireAuth, wrap(async (req, res) => {
   const contacts = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.userId, userId))
+    .where(and(eq(contactsTable.userId, userId), isNull(contactsTable.archivedAt)))
     .orderBy(asc(contactsTable.name));
 
   const escape = (v: string | null | undefined) => {
@@ -171,14 +171,18 @@ router.get("/contacts", requireAuth, wrap(async (req, res) => {
     return;
   }
 
-  const { tier, overdue } = query.data;
+  const { tier, overdue, archived } = query.data;
   const today = new Date().toISOString().slice(0, 10);
   const userId = getUserId(req);
 
   let contacts = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.userId, userId))
+    .where(
+      archived
+        ? and(eq(contactsTable.userId, userId), isNotNull(contactsTable.archivedAt))
+        : and(eq(contactsTable.userId, userId), isNull(contactsTable.archivedAt))
+    )
     .orderBy(asc(contactsTable.nextContactDate), asc(contactsTable.name));
 
   if (tier) contacts = contacts.filter((c) => c.tier === tier);
@@ -231,7 +235,7 @@ router.get("/contacts/stats", requireAuth, wrap(async (req, res) => {
   const contacts = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.userId, userId));
+    .where(and(eq(contactsTable.userId, userId), isNull(contactsTable.archivedAt)));
 
   const core = contacts.filter((c) => c.tier === "core").length;
   const monthly = contacts.filter((c) => c.tier === "monthly").length;
@@ -252,7 +256,7 @@ router.get("/contacts/due", requireAuth, wrap(async (req, res) => {
   const contacts = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.userId, userId))
+    .where(and(eq(contactsTable.userId, userId), isNull(contactsTable.archivedAt)))
     .orderBy(asc(contactsTable.nextContactDate));
 
   const due = contacts
@@ -399,6 +403,46 @@ router.post("/contacts/:id/touch", requireAuth, wrap(async (req, res) => {
     .returning();
 
   res.json(TouchContactResponse.parse(contact));
+}));
+
+// POST /contacts/:id/archive
+router.post("/contacts/:id/archive", requireAuth, wrap(async (req, res) => {
+  const params = GetContactParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const userId = getUserId(req);
+  const [contact] = await db
+    .update(contactsTable)
+    .set({ archivedAt: new Date() })
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
+    .returning();
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  res.json(GetContactResponse.parse(contact));
+}));
+
+// POST /contacts/:id/unarchive
+router.post("/contacts/:id/unarchive", requireAuth, wrap(async (req, res) => {
+  const params = GetContactParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const userId = getUserId(req);
+  const [contact] = await db
+    .update(contactsTable)
+    .set({ archivedAt: null })
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
+    .returning();
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  res.json(GetContactResponse.parse(contact));
 }));
 
 // GET /calendar/token

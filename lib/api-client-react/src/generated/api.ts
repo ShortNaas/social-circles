@@ -701,6 +701,174 @@ export const useDeleteContact = <
 };
 
 /**
+ * @summary Archive a contact (hides from main list)
+ */
+export const getArchiveContactUrl = (id: number) => {
+  return `/api/contacts/${id}/archive`;
+};
+
+export const archiveContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Contact> => {
+  return customFetch<Contact>(getArchiveContactUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getArchiveContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["archiveContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveContact>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return archiveContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveContact>>
+>;
+
+export type ArchiveContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive a contact (hides from main list)
+ */
+export const useArchiveContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getArchiveContactMutationOptions(options));
+};
+
+/**
+ * @summary Unarchive a contact
+ */
+export const getUnarchiveContactUrl = (id: number) => {
+  return `/api/contacts/${id}/unarchive`;
+};
+
+export const unarchiveContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Contact> => {
+  return customFetch<Contact>(getUnarchiveContactUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUnarchiveContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unarchiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unarchiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["unarchiveContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unarchiveContact>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unarchiveContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnarchiveContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unarchiveContact>>
+>;
+
+export type UnarchiveContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unarchive a contact
+ */
+export const useUnarchiveContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unarchiveContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unarchiveContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getUnarchiveContactMutationOptions(options));
+};
+
+/**
  * @summary Mark contact as reached out today, recalculates next contact date
  */
 export const getTouchContactUrl = (id: number) => {

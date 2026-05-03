@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare, Archive, ArchiveRestore } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel, TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -82,6 +82,7 @@ export default function ContactDetail() {
   const [touchDialogOpen, setTouchDialogOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState(false);
   const [bdayValue, setBdayValue] = useState("");
+  const [archiving, setArchiving] = useState(false);
 
   const { data: contact, isLoading, error } = useGetContact(id, { 
     query: { 
@@ -165,6 +166,28 @@ export default function ContactDetail() {
         setLocation("/contacts");
       }
     });
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!contact || archiving) return;
+    setArchiving(true);
+    const action = contact.archivedAt ? "unarchive" : "archive";
+    try {
+      const res = await fetch(`/api/contacts/${id}/${action}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Request failed");
+      const updated = await res.json();
+      queryClient.setQueryData(getGetContactQueryKey(id), updated);
+      queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
+      toast({ title: contact.archivedAt ? "Contact restored" : "Contact archived" });
+    } catch {
+      toast({ title: "Something went wrong", variant: "destructive" });
+    } finally {
+      setArchiving(false);
+    }
   };
 
   if (isLoading) {
@@ -473,7 +496,23 @@ export default function ContactDetail() {
             </Card>
 
             <Card className="shadow-sm border-border/60 border-destructive/20">
-              <CardContent className="p-6">
+              <CardContent className="p-6 space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleArchiveToggle}
+                  disabled={archiving}
+                  data-testid="btn-archive-contact"
+                >
+                  {archiving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : contact.archivedAt ? (
+                    <ArchiveRestore className="h-4 w-4" />
+                  ) : (
+                    <Archive className="h-4 w-4" />
+                  )}
+                  {contact.archivedAt ? "Restore from Archive" : "Archive Contact"}
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" className="w-full text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive gap-2" data-testid="btn-delete-contact">
