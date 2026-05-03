@@ -38,6 +38,7 @@ export interface Contact {
   twitter: string | null;
   instagram: string | null;
   address: string | null;
+  snoozedUntil?: string | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -96,6 +97,7 @@ export interface UpdateContactBody {
   twitter?: string | null;
   instagram?: string | null;
   address?: string | null;
+  snoozedUntil?: string | null;
 }
 
 export interface ContactInfoHistoryItem {

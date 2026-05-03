@@ -45,6 +45,7 @@ import {
   ArchiveRestore,
   Trash2,
   MessageSquare,
+  BellOff,
 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
@@ -517,6 +518,12 @@ export default function Contacts() {
                       <Badge variant="outline" className={getTierColor(contact.tier)}>
                         {getTierLabel(contact.tier, contact.intervalDays)}
                       </Badge>
+                      {contact.snoozedUntil && contact.snoozedUntil >= new Date().toISOString().slice(0, 10) && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-medium shrink-0">
+                          <BellOff className="h-3 w-3" />
+                          Until {new Date(contact.snoozedUntil + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mt-2">
                       <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded-md">
@@ -601,6 +608,7 @@ export default function Contacts() {
                         <SnoozePopover
                           contactId={contact.id}
                           contactName={contact.name}
+                          snoozedUntil={contact.snoozedUntil}
                         />
                       </>
                     )}

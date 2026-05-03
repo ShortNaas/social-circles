@@ -347,6 +347,10 @@ components:
         address:
           type: string
           nullable: true
+        snoozedUntil:
+          type: string
+          format: date
+          nullable: true
         archivedAt:
           type: string
           format: date-time
@@ -471,6 +475,10 @@ components:
           nullable: true
         address:
           type: string
+          nullable: true
+        snoozedUntil:
+          type: string
+          format: date
           nullable: true
 
     ContactInfoHistoryItem:

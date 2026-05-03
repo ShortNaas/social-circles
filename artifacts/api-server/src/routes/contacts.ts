@@ -425,7 +425,7 @@ router.post("/contacts/:id/touch", requireAuth, wrap(async (req, res) => {
 
   const [contact] = await db
     .update(contactsTable)
-    .set({ lastContactDate: today, nextContactDate })
+    .set({ lastContactDate: today, nextContactDate, snoozedUntil: null })
     .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 

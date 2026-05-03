@@ -363,7 +363,7 @@ export default function ContactDetail() {
               <CheckCircle2 className="h-5 w-5" />
               Mark Reached Out
             </Button>
-            <SnoozePopover contactId={contact.id} contactName={contact.name} />
+            <SnoozePopover contactId={contact.id} contactName={contact.name} snoozedUntil={contact.snoozedUntil} />
           </div>
         </div>
 

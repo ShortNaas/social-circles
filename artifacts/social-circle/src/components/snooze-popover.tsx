@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 interface SnoozePopoverProps {
   contactId: number;
   contactName: string;
+  snoozedUntil?: string | null;
 }
 
 const QUICK_OPTIONS = [
@@ -24,7 +25,7 @@ function addDays(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function SnoozePopover({ contactId, contactName }: SnoozePopoverProps) {
+export function SnoozePopover({ contactId, contactName, snoozedUntil }: SnoozePopoverProps) {
   const [open, setOpen] = useState(false);
   const [customDate, setCustomDate] = useState("");
   const queryClient = useQueryClient();
@@ -32,10 +33,11 @@ export function SnoozePopover({ contactId, contactName }: SnoozePopoverProps) {
   const updateMutation = useUpdateContact();
 
   const isPending = updateMutation.isPending;
+  const isCurrentlySnoozed = snoozedUntil && snoozedUntil >= new Date().toISOString().slice(0, 10);
 
   function snoozeUntil(nextContactDate: string, label: string) {
     updateMutation.mutate(
-      { id: contactId, data: { nextContactDate } },
+      { id: contactId, data: { nextContactDate, snoozedUntil: nextContactDate } },
       {
         onSuccess: (updated) => {
           queryClient.setQueryData(getGetContactQueryKey(contactId), updated);
@@ -60,6 +62,22 @@ export function SnoozePopover({ contactId, contactName }: SnoozePopoverProps) {
     );
   }
 
+  function handleUnsnooze() {
+    updateMutation.mutate(
+      { id: contactId, data: { snoozedUntil: null } },
+      {
+        onSuccess: (updated) => {
+          queryClient.setQueryData(getGetContactQueryKey(contactId), updated);
+          queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetDueContactsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() });
+          toast({ title: "Snooze cleared", description: `${contactName} is back in your circle.` });
+          setOpen(false);
+        },
+      }
+    );
+  }
+
   function handleCustomDate() {
     if (!customDate) return;
     const d = new Date(customDate);
@@ -75,7 +93,7 @@ export function SnoozePopover({ contactId, contactName }: SnoozePopoverProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 shrink-0"
+          className={`h-8 w-8 shrink-0 ${isCurrentlySnoozed ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
           aria-label={`Snooze ${contactName}`}
           data-testid={`snooze-contact-${contactId}`}
         >
@@ -83,6 +101,22 @@ export function SnoozePopover({ contactId, contactName }: SnoozePopoverProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-3" align="end">
+        {isCurrentlySnoozed && (
+          <div className="mb-2.5 pb-2.5 border-b border-border">
+            <p className="text-xs text-amber-600 font-medium mb-1.5">
+              Snoozed until {new Date(snoozedUntil! + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-7 text-xs"
+              onClick={handleUnsnooze}
+              disabled={isPending}
+            >
+              Clear snooze
+            </Button>
+          </div>
+        )}
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2.5">
           Snooze until…
         </p>
