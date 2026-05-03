@@ -13,6 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "wouter";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   CalendarClock,
   CheckCircle2,
   User,
@@ -25,6 +35,7 @@ import {
   X,
   Archive,
   ArchiveRestore,
+  Trash2,
 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
@@ -50,6 +61,7 @@ export default function Contacts() {
   const [exporting, setExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -273,6 +285,42 @@ export default function Contacts() {
       });
     } finally {
       setBulkLoading(false);
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0 || bulkLoading) return;
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const token = await getToken();
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/contacts/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+            headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          })
+        )
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetContactStatsQueryKey() }),
+      ]);
+      toast({
+        title: "Contacts deleted",
+        description: `${ids.length} contact${ids.length === 1 ? "" : "s"} permanently deleted.`,
+      });
+      setSelectedIds(new Set());
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Some contacts may not have been deleted. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkLoading(false);
+      setConfirmDeleteOpen(false);
     }
   }
 
@@ -545,6 +593,16 @@ export default function Contacts() {
               )}
               {bulkLoading ? "Working…" : showArchived ? "Restore" : "Archive"}
             </Button>
+            <Button
+              size="sm"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={bulkLoading}
+              className="bg-destructive/80 text-white hover:bg-destructive gap-2 rounded-xl h-8 px-4"
+              data-testid="btn-bulk-delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
             <button
               onClick={clearSelection}
               className="text-background/60 hover:text-background transition-colors ml-1"
@@ -568,6 +626,28 @@ export default function Contacts() {
           }}
         />
       )}
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} contact{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedIds.size === 1 ? "this contact" : `these ${selectedIds.size} contacts`} and all their notes. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={bulkLoading}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {bulkLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

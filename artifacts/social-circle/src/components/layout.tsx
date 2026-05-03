@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Users, LayoutDashboard, PlusCircle, CalendarDays, LogOut, ChevronDown } from "lucide-react";
-import { useUser, useClerk } from "@clerk/react";
+import { Users, LayoutDashboard, PlusCircle, CalendarDays, LogOut, ChevronDown, Mail } from "lucide-react";
+import { useUser, useClerk, useAuth } from "@clerk/react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CalendarSyncDialog } from "@/components/calendar-sync-dialog";
@@ -21,6 +22,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { getToken } = useAuth();
+  const [sendingDigest, setSendingDigest] = useState(false);
+
+  const handleSendDigest = async () => {
+    setSendingDigest(true);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/digest", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? `Error ${res.status}`);
+      }
+      const data = await res.json() as { to: string };
+      toast.success("Digest sent!", { description: `Check your inbox at ${data.to}` });
+    } catch (e: any) {
+      toast.error("Failed to send digest", { description: e.message });
+    } finally {
+      setSendingDigest(false);
+    }
+  };
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -103,6 +127,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     {user.emailAddresses[0]?.emailAddress}
                   </p>
                 </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSendDigest}
+                  disabled={sendingDigest}
+                  className="gap-2 cursor-pointer"
+                >
+                  <Mail className="h-4 w-4" />
+                  {sendingDigest ? "Sending…" : "Send test digest"}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleSignOut}

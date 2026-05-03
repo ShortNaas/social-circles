@@ -4,6 +4,7 @@ import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { queryClient } from "@/lib/queryClient";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
@@ -197,6 +198,7 @@ function ClerkProviderWithRoutes() {
             <Route component={ProtectedApp} />
           </Switch>
           <Toaster />
+          <SonnerToaster />
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>
