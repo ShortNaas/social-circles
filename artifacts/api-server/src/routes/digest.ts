@@ -2,9 +2,26 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, isNull } from "drizzle-orm";
 import { Resend } from "resend";
 import { getAuth } from "@clerk/express";
-import { createClerkClient } from "@clerk/backend";
 import { db, contactsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
+
+async function getClerkUser(userId: string): Promise<{ email: string; firstName: string }> {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) throw new Error("CLERK_SECRET_KEY is not configured");
+  const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+  });
+  if (!res.ok) throw new Error(`Clerk API error: ${res.status}`);
+  const user = await res.json() as {
+    email_addresses: Array<{ id: string; email_address: string }>;
+    primary_email_address_id: string;
+    first_name: string | null;
+  };
+  const email = user.email_addresses.find((e) => e.id === user.primary_email_address_id)?.email_address ?? "";
+  if (!email) throw new Error("No primary email found for user");
+  const firstName = user.first_name ?? email.split("@")[0];
+  return { email, firstName };
+}
 
 const router: IRouter = Router();
 
@@ -132,18 +149,8 @@ async function buildAndSendDigest(userId: string, userEmail: string, userName: s
 // POST /digest — authenticated user triggers digest for themselves
 router.post("/digest", requireAuth, wrap(async (req, res) => {
   const userId = getUserId(req);
-
-  const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-  const user = await clerk.users.getUser(userId);
-  const email = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress;
-  if (!email) {
-    res.status(400).json({ error: "No email address found for your account" });
-    return;
-  }
-
-  const firstName = user.firstName ?? email.split("@")[0];
+  const { email, firstName } = await getClerkUser(userId);
   await buildAndSendDigest(userId, email, firstName);
-
   res.json({ sent: true, to: email });
 }));
 
@@ -155,8 +162,6 @@ router.post("/digest/cron", wrap(async (req, res) => {
     return;
   }
 
-  const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-
   const rows = await db
     .selectDistinct({ userId: contactsTable.userId })
     .from(contactsTable);
@@ -166,10 +171,7 @@ router.post("/digest/cron", wrap(async (req, res) => {
 
   for (const { userId } of rows) {
     try {
-      const user = await clerk.users.getUser(userId);
-      const email = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress;
-      if (!email) continue;
-      const firstName = user.firstName ?? email.split("@")[0];
+      const { email, firstName } = await getClerkUser(userId);
       await buildAndSendDigest(userId, email, firstName);
       sent++;
     } catch (err) {
