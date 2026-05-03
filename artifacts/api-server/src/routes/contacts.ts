@@ -23,6 +23,13 @@ import {
 
 const router: IRouter = Router();
 
+// Wraps async route handlers so thrown errors reach Express's error middleware
+function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    fn(req, res, next).catch(next);
+  };
+}
+
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
@@ -77,7 +84,7 @@ function getCalendarFeedToken(userId: string): string {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET /contacts/export — download all contacts as a CSV file
-router.get("/contacts/export", requireAuth, async (req, res): Promise<void> => {
+router.get("/contacts/export", requireAuth, wrap(async (req, res) => {
   const userId = getUserId(req);
   const contacts = await db
     .select()
@@ -109,10 +116,10 @@ router.get("/contacts/export", requireAuth, async (req, res): Promise<void> => {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="social-circle-contacts.csv"');
   res.send(csv);
-});
+}));
 
 // GET /contacts
-router.get("/contacts", requireAuth, async (req, res): Promise<void> => {
+router.get("/contacts", requireAuth, wrap(async (req, res) => {
   const query = ListContactsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -133,10 +140,10 @@ router.get("/contacts", requireAuth, async (req, res): Promise<void> => {
   if (overdue) contacts = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today);
 
   res.json(ListContactsResponse.parse(contacts));
-});
+}));
 
 // POST /contacts
-router.post("/contacts", requireAuth, async (req, res): Promise<void> => {
+router.post("/contacts", requireAuth, wrap(async (req, res) => {
   const parsed = CreateContactBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -168,10 +175,10 @@ router.post("/contacts", requireAuth, async (req, res): Promise<void> => {
     .returning();
 
   res.status(201).json(GetContactResponse.parse(contact));
-});
+}));
 
 // GET /contacts/stats
-router.get("/contacts/stats", requireAuth, async (req, res): Promise<void> => {
+router.get("/contacts/stats", requireAuth, wrap(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const weekLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const userId = getUserId(req);
@@ -190,10 +197,10 @@ router.get("/contacts/stats", requireAuth, async (req, res): Promise<void> => {
   ).length;
 
   res.json(GetContactStatsResponse.parse({ total: contacts.length, core, monthly, yearly, overdueCount, dueThisWeek }));
-});
+}));
 
 // GET /contacts/due
-router.get("/contacts/due", requireAuth, async (req, res): Promise<void> => {
+router.get("/contacts/due", requireAuth, wrap(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const userId = getUserId(req);
 
@@ -215,10 +222,10 @@ router.get("/contacts/due", requireAuth, async (req, res): Promise<void> => {
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   res.json(GetDueContactsResponse.parse(due));
-});
+}));
 
 // GET /contacts/:id
-router.get("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/contacts/:id", requireAuth, wrap(async (req, res) => {
   const params = GetContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -236,10 +243,10 @@ router.get("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json(GetContactResponse.parse(contact));
-});
+}));
 
 // PATCH /contacts/:id
-router.patch("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
   const params = UpdateContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -293,10 +300,10 @@ router.patch("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json(UpdateContactResponse.parse(contact));
-});
+}));
 
 // DELETE /contacts/:id
-router.delete("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/contacts/:id", requireAuth, wrap(async (req, res) => {
   const params = DeleteContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -314,10 +321,10 @@ router.delete("/contacts/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
-});
+}));
 
 // POST /contacts/:id/touch
-router.post("/contacts/:id/touch", requireAuth, async (req, res): Promise<void> => {
+router.post("/contacts/:id/touch", requireAuth, wrap(async (req, res) => {
   const params = TouchContactParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -347,10 +354,10 @@ router.post("/contacts/:id/touch", requireAuth, async (req, res): Promise<void> 
     .returning();
 
   res.json(TouchContactResponse.parse(contact));
-});
+}));
 
 // GET /calendar/token
-router.get("/calendar/token", requireAuth, async (req, res): Promise<void> => {
+router.get("/calendar/token", requireAuth, wrap(async (req, res) => {
   const userId = getUserId(req);
   const token = getCalendarFeedToken(userId);
   const host = req.headers["x-forwarded-host"] ?? req.headers["host"] ?? "localhost";
@@ -358,10 +365,10 @@ router.get("/calendar/token", requireAuth, async (req, res): Promise<void> => {
   const feedUrl = `${proto}://${host}/api/calendar/feed.ics?uid=${encodeURIComponent(userId)}&token=${token}`;
 
   res.json(GetCalendarTokenResponse.parse({ token, feedUrl }));
-});
+}));
 
 // GET /calendar/feed.ics?uid=UID&token=TOKEN
-router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
+router.get("/calendar/feed.ics", wrap(async (req, res) => {
   const uid = req.query.uid as string | undefined;
   if (!uid) {
     res.status(401).json({ error: "Missing uid" });
@@ -429,10 +436,10 @@ router.get("/calendar/feed.ics", async (req, res): Promise<void> => {
   res.setHeader("Cache-Control", "no-cache, no-store");
   res.setHeader("Content-Disposition", 'attachment; filename="social-circle.ics"');
   res.send(ics);
-});
+}));
 
 // GET /contacts/:id/calendar.ics
-router.get("/contacts/:id/calendar.ics", requireAuth, async (req, res): Promise<void> => {
+router.get("/contacts/:id/calendar.ics", requireAuth, wrap(async (req, res) => {
   const params = GetContactCalendarParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -482,6 +489,6 @@ router.get("/contacts/:id/calendar.ics", requireAuth, async (req, res): Promise<
     `attachment; filename="reach-out-${contact.name.toLowerCase().replace(/\s+/g, "-")}.ics"`,
   );
   res.send(ics);
-});
+}));
 
 export default router;
