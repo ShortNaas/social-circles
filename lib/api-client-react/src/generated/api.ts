@@ -19,6 +19,7 @@ import type {
 import type {
   CalendarToken,
   Contact,
+  ContactInfoHistoryItem,
   ContactStats,
   CreateContactBody,
   DueContact,
@@ -699,6 +700,97 @@ export const useDeleteContact = <
 > => {
   return useMutation(getDeleteContactMutationOptions(options));
 };
+
+/**
+ * @summary Get history of contact info field changes
+ */
+export const getGetContactInfoHistoryUrl = (id: number) => {
+  return `/api/contacts/${id}/info-history`;
+};
+
+export const getContactInfoHistory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ContactInfoHistoryItem[]> => {
+  return customFetch<ContactInfoHistoryItem[]>(
+    getGetContactInfoHistoryUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetContactInfoHistoryQueryKey = (id: number) => {
+  return [`/api/contacts/${id}/info-history`] as const;
+};
+
+export const getGetContactInfoHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getContactInfoHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContactInfoHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetContactInfoHistoryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getContactInfoHistory>>
+  > = ({ signal }) => getContactInfoHistory(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getContactInfoHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetContactInfoHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getContactInfoHistory>>
+>;
+export type GetContactInfoHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get history of contact info field changes
+ */
+
+export function useGetContactInfoHistory<
+  TData = Awaited<ReturnType<typeof getContactInfoHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContactInfoHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetContactInfoHistoryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Archive a contact (hides from main list)

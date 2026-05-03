@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, asc, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, asc, desc, and, isNull, isNotNull } from "drizzle-orm";
 import crypto from "crypto";
 import { getAuth } from "@clerk/express";
-import { db, contactsTable } from "@workspace/db";
+import { db, contactsTable, contactInfoHistoryTable } from "@workspace/db";
 import {
   ListContactsQueryParams,
   CreateContactBody,
@@ -12,6 +12,7 @@ import {
   DeleteContactParams,
   TouchContactParams,
   GetContactCalendarParams,
+  GetContactInfoHistoryParams,
   GetContactStatsResponse,
   GetDueContactsResponse,
   ListContactsResponse,
@@ -19,6 +20,7 @@ import {
   UpdateContactResponse,
   TouchContactResponse,
   GetCalendarTokenResponse,
+  GetContactInfoHistoryResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -71,6 +73,18 @@ function intervalLabel(tier: string, intervalDays: number | null): string {
   if (days < 365) return "every 6 months";
   return "every year";
 }
+
+// Parses tags from JSON string in DB to array for API responses
+function parseDbContact<T extends { tags?: string | null }>(c: T): Omit<T, "tags"> & { tags: string[] | null } {
+  let tags: string[] | null = null;
+  if (c.tags) {
+    try { tags = JSON.parse(c.tags); } catch { tags = []; }
+  }
+  return { ...c, tags };
+}
+
+// The info fields we track history for
+const TRACKED_INFO_FIELDS = ["email", "phone", "linkedin", "twitter", "instagram", "address"] as const;
 
 function getCalendarFeedToken(userId: string): string {
   const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret";
@@ -188,7 +202,7 @@ router.get("/contacts", requireAuth, wrap(async (req, res) => {
   if (tier) contacts = contacts.filter((c) => c.tier === tier);
   if (overdue) contacts = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today);
 
-  res.json(ListContactsResponse.parse(contacts));
+  res.json(ListContactsResponse.parse(contacts.map(parseDbContact)));
 }));
 
 // POST /contacts
@@ -223,7 +237,7 @@ router.post("/contacts", requireAuth, wrap(async (req, res) => {
     })
     .returning();
 
-  res.status(201).json(GetContactResponse.parse(contact));
+  res.status(201).json(GetContactResponse.parse(parseDbContact(contact)));
 }));
 
 // GET /contacts/stats
@@ -270,7 +284,7 @@ router.get("/contacts/due", requireAuth, wrap(async (req, res) => {
     .filter((c) => c.daysOverdue >= -7)
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
-  res.json(GetDueContactsResponse.parse(due));
+  res.json(GetDueContactsResponse.parse(due.map(parseDbContact)));
 }));
 
 // GET /contacts/:id
@@ -291,7 +305,7 @@ router.get("/contacts/:id", requireAuth, wrap(async (req, res) => {
     return;
   }
 
-  res.json(GetContactResponse.parse(contact));
+  res.json(GetContactResponse.parse(parseDbContact(contact)));
 }));
 
 // PATCH /contacts/:id
@@ -322,6 +336,11 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
 
   const updates: Record<string, unknown> = { ...parsed.data };
 
+  // Serialize tags array to JSON string for storage
+  if (parsed.data.tags !== undefined) {
+    updates.tags = parsed.data.tags != null ? JSON.stringify(parsed.data.tags) : null;
+  }
+
   const tierChanged = parsed.data.tier != null;
   const intervalChanged = parsed.data.intervalDays !== undefined;
   const lastDateChanged = parsed.data.lastContactDate !== undefined;
@@ -337,6 +356,18 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
     }
   }
 
+  // Track changes to contact info fields and log history
+  const historyEntries: Array<{ contactId: number; field: string; oldValue: string | null; newValue: string | null }> = [];
+  for (const field of TRACKED_INFO_FIELDS) {
+    if (field in parsed.data) {
+      const oldVal = (existing as any)[field] as string | null;
+      const newVal = (parsed.data as any)[field] as string | null;
+      if (oldVal !== newVal) {
+        historyEntries.push({ contactId: params.data.id, field, oldValue: oldVal ?? null, newValue: newVal ?? null });
+      }
+    }
+  }
+
   const [contact] = await db
     .update(contactsTable)
     .set(updates as any)
@@ -348,7 +379,11 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
     return;
   }
 
-  res.json(UpdateContactResponse.parse(contact));
+  if (historyEntries.length > 0) {
+    await db.insert(contactInfoHistoryTable).values(historyEntries);
+  }
+
+  res.json(UpdateContactResponse.parse(parseDbContact(contact)));
 }));
 
 // DELETE /contacts/:id
@@ -402,7 +437,7 @@ router.post("/contacts/:id/touch", requireAuth, wrap(async (req, res) => {
     .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 
-  res.json(TouchContactResponse.parse(contact));
+  res.json(TouchContactResponse.parse(parseDbContact(contact)));
 }));
 
 // POST /contacts/:id/archive
@@ -422,7 +457,7 @@ router.post("/contacts/:id/archive", requireAuth, wrap(async (req, res) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-  res.json(GetContactResponse.parse(contact));
+  res.json(GetContactResponse.parse(parseDbContact(contact)));
 }));
 
 // POST /contacts/:id/unarchive
@@ -442,7 +477,27 @@ router.post("/contacts/:id/unarchive", requireAuth, wrap(async (req, res) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-  res.json(GetContactResponse.parse(contact));
+  res.json(GetContactResponse.parse(parseDbContact(contact)));
+}));
+
+// GET /contacts/:id/info-history
+router.get("/contacts/:id/info-history", requireAuth, wrap(async (req, res) => {
+  const params = GetContactInfoHistoryParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const userId = getUserId(req);
+  const [contact] = await db.select().from(contactsTable)
+    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)));
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  const history = await db.select().from(contactInfoHistoryTable)
+    .where(eq(contactInfoHistoryTable.contactId, params.data.id))
+    .orderBy(desc(contactInfoHistoryTable.changedAt));
+  res.json(GetContactInfoHistoryResponse.parse(history));
 }));
 
 // GET /calendar/token

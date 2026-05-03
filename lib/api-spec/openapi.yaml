@@ -170,6 +170,27 @@ paths:
         "204":
           description: Deleted
 
+  /contacts/{id}/info-history:
+    get:
+      operationId: getContactInfoHistory
+      tags: [contacts]
+      summary: Get history of contact info field changes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: History entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContactInfoHistoryItem"
+
   /contacts/{id}/archive:
     post:
       operationId: archiveContact
@@ -308,6 +329,29 @@ components:
           type: string
           format: date
           nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        linkedin:
+          type: string
+          nullable: true
+        twitter:
+          type: string
+          nullable: true
+        instagram:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
         archivedAt:
           type: string
           format: date-time
@@ -328,6 +372,13 @@ components:
         - nextContactDate
         - notes
         - birthday
+        - email
+        - phone
+        - linkedin
+        - twitter
+        - instagram
+        - address
+        - tags
         - archivedAt
         - createdAt
         - updatedAt
@@ -357,6 +408,29 @@ components:
           type: string
           nullable: true
           description: Birthday in YYYY-MM-DD format
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        linkedin:
+          type: string
+          nullable: true
+        twitter:
+          type: string
+          nullable: true
+        instagram:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
       required:
         - name
         - tier
@@ -391,6 +465,55 @@ components:
           type: string
           nullable: true
           description: Birthday in YYYY-MM-DD format
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        linkedin:
+          type: string
+          nullable: true
+        twitter:
+          type: string
+          nullable: true
+        instagram:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    ContactInfoHistoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        contactId:
+          type: integer
+        field:
+          type: string
+        oldValue:
+          type: string
+          nullable: true
+        newValue:
+          type: string
+          nullable: true
+        changedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - contactId
+        - field
+        - oldValue
+        - newValue
+        - changedAt
 
     ContactStats:
       type: object

@@ -4,7 +4,9 @@ import {
   useGetContact, 
   useUpdateContact, 
   useDeleteContact,
+  useGetContactInfoHistory,
   getGetContactQueryKey,
+  getGetContactInfoHistoryQueryKey,
   getListContactsQueryKey,
   getGetContactStatsQueryKey,
   getGetDueContactsQueryKey,
@@ -29,7 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare, Archive, ArchiveRestore } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare, Archive, ArchiveRestore, Phone, Mail, Linkedin, Twitter, Instagram, MapPin, Copy, Check, Tag, Plus, X as XIcon, History } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel, TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -84,11 +86,28 @@ export default function ContactDetail() {
   const [bdayValue, setBdayValue] = useState("");
   const [archiving, setArchiving] = useState(false);
 
+  // Contact info fields
+  const [isEditingContactInfo, setIsEditingContactInfo] = useState(false);
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLinkedin, setEditLinkedin] = useState("");
+  const [editTwitter, setEditTwitter] = useState("");
+  const [editInstagram, setEditInstagram] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Tags
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
+
   const { data: contact, isLoading, error } = useGetContact(id, { 
     query: { 
       enabled: !!id, 
       queryKey: getGetContactQueryKey(id) 
     } 
+  });
+  const { data: infoHistory } = useGetContactInfoHistory(id, {
+    query: { enabled: !!id, queryKey: getGetContactInfoHistoryQueryKey(id) }
   });
 
   const updateMutation = useUpdateContact();
@@ -103,6 +122,13 @@ export default function ContactDetail() {
       setEditName(contact.name);
       setEditRelation(contact.relationshipType);
       setBdayValue(contact.birthday ?? "");
+      setEditEmail(contact.email ?? "");
+      setEditPhone(contact.phone ?? "");
+      setEditLinkedin(contact.linkedin ?? "");
+      setEditTwitter(contact.twitter ?? "");
+      setEditInstagram(contact.instagram ?? "");
+      setEditAddress(contact.address ?? "");
+      setEditTags(contact.tags ?? []);
     }
   }, [contact, id]);
 
@@ -165,6 +191,53 @@ export default function ContactDetail() {
         toast({ title: "Contact deleted" });
         setLocation("/contacts");
       }
+    });
+  };
+
+  const handleContactInfoSave = () => {
+    updateMutation.mutate({
+      id,
+      data: {
+        email: editEmail.trim() || null,
+        phone: editPhone.trim() || null,
+        linkedin: editLinkedin.trim() || null,
+        twitter: editTwitter.trim() || null,
+        instagram: editInstagram.trim() || null,
+        address: editAddress.trim() || null,
+      },
+    }, {
+      onSuccess: (data) => {
+        setIsEditingContactInfo(false);
+        queryClient.setQueryData(getGetContactQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getGetContactInfoHistoryQueryKey(id) });
+        toast({ title: "Contact info updated" });
+      },
+    });
+  };
+
+  const handleCopy = (value: string, field: string) => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
+
+  const handleAddTag = () => {
+    const tag = newTagInput.trim().toLowerCase();
+    if (!tag || editTags.includes(tag)) { setNewTagInput(""); return; }
+    const newTags = [...editTags, tag];
+    setEditTags(newTags);
+    setNewTagInput("");
+    updateMutation.mutate({ id, data: { tags: newTags } }, {
+      onSuccess: (data) => { queryClient.setQueryData(getGetContactQueryKey(id), data); },
+    });
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    const newTags = editTags.filter((t) => t !== tag);
+    setEditTags(newTags);
+    updateMutation.mutate({ id, data: { tags: newTags } }, {
+      onSuccess: (data) => { queryClient.setQueryData(getGetContactQueryKey(id), data); },
     });
   };
 
@@ -399,6 +472,141 @@ export default function ContactDetail() {
             </Card>
           </div>
 
+          {/* ── Contact Info card ── */}
+          <Card className="shadow-sm border-border/60">
+            <CardHeader className="bg-muted/10 border-b border-border/40 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-serif font-medium flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                Contact Info
+              </CardTitle>
+              {!isEditingContactInfo ? (
+                <Button variant="ghost" size="sm" onClick={() => setIsEditingContactInfo(true)}>Edit</Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setIsEditingContactInfo(false);
+                    setEditEmail(contact.email ?? "");
+                    setEditPhone(contact.phone ?? "");
+                    setEditLinkedin(contact.linkedin ?? "");
+                    setEditTwitter(contact.twitter ?? "");
+                    setEditInstagram(contact.instagram ?? "");
+                    setEditAddress(contact.address ?? "");
+                  }}>Cancel</Button>
+                  <Button size="sm" onClick={handleContactInfoSave} disabled={updateMutation.isPending} className="gap-1">
+                    {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    Save
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="p-6">
+              {isEditingContactInfo ? (
+                <div className="space-y-3">
+                  {[
+                    { label: "Email", value: editEmail, set: setEditEmail, placeholder: "name@example.com", icon: <Mail className="h-4 w-4 text-muted-foreground" /> },
+                    { label: "Phone", value: editPhone, set: setEditPhone, placeholder: "+1 555 000 0000", icon: <Phone className="h-4 w-4 text-muted-foreground" /> },
+                    { label: "LinkedIn", value: editLinkedin, set: setEditLinkedin, placeholder: "linkedin.com/in/username", icon: <Linkedin className="h-4 w-4 text-muted-foreground" /> },
+                    { label: "Twitter / X", value: editTwitter, set: setEditTwitter, placeholder: "@username", icon: <Twitter className="h-4 w-4 text-muted-foreground" /> },
+                    { label: "Instagram", value: editInstagram, set: setEditInstagram, placeholder: "@username", icon: <Instagram className="h-4 w-4 text-muted-foreground" /> },
+                    { label: "Address", value: editAddress, set: setEditAddress, placeholder: "City, Country", icon: <MapPin className="h-4 w-4 text-muted-foreground" /> },
+                  ].map(({ label, value, set, placeholder, icon }) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <div className="shrink-0">{icon}</div>
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground block mb-0.5">{label}</label>
+                        <Input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder} className="h-8 text-sm" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (() => {
+                const fields = [
+                  { label: "Email", value: contact.email, icon: <Mail className="h-4 w-4 text-muted-foreground shrink-0" />, key: "email" },
+                  { label: "Phone", value: contact.phone, icon: <Phone className="h-4 w-4 text-muted-foreground shrink-0" />, key: "phone" },
+                  { label: "LinkedIn", value: contact.linkedin, icon: <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />, key: "linkedin" },
+                  { label: "Twitter / X", value: contact.twitter, icon: <Twitter className="h-4 w-4 text-muted-foreground shrink-0" />, key: "twitter" },
+                  { label: "Instagram", value: contact.instagram, icon: <Instagram className="h-4 w-4 text-muted-foreground shrink-0" />, key: "instagram" },
+                  { label: "Address", value: contact.address, icon: <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />, key: "address" },
+                ];
+                const filled = fields.filter((f) => f.value);
+                if (filled.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <Phone className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground text-sm">No contact info yet.</p>
+                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground px-0" onClick={() => setIsEditingContactInfo(true)}>
+                        + Add email, phone, or social
+                      </Button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-3">
+                    {filled.map(({ label, value, icon, key }) => (
+                      <div key={key} className="flex items-start gap-3 group">
+                        <div className="mt-0.5">{icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                          <p className="text-sm font-medium truncate">{value}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          title={`Copy ${label}`}
+                          onClick={() => handleCopy(value!, key)}
+                        >
+                          {copiedField === key ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* ── Info change history ── */}
+          {infoHistory && infoHistory.length > 0 && (
+            <Card className="shadow-sm border-border/60">
+              <CardHeader className="bg-muted/10 border-b border-border/40 pb-4">
+                <CardTitle className="text-base font-serif font-medium flex items-center gap-2">
+                  <History className="h-4 w-4 text-muted-foreground" />
+                  Contact Info History
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  {infoHistory.map((entry) => {
+                    const fieldLabel: Record<string, string> = { email: "Email", phone: "Phone", linkedin: "LinkedIn", twitter: "Twitter", instagram: "Instagram", address: "Address" };
+                    return (
+                      <div key={entry.id} className="flex gap-3 text-sm">
+                        <div className="shrink-0 w-2 h-2 rounded-full bg-muted-foreground/40 mt-2" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground mb-0.5">
+                            {new Date(entry.changedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                          <p className="text-foreground">
+                            <span className="font-medium">{fieldLabel[entry.field] ?? entry.field}</span>
+                            {entry.oldValue && entry.newValue ? (
+                              <> changed from <span className="text-muted-foreground line-through">{entry.oldValue}</span> to <span>{entry.newValue}</span></>
+                            ) : entry.newValue ? (
+                              <> set to <span>{entry.newValue}</span></>
+                            ) : (
+                              <> removed</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="space-y-6">
             <Card className="shadow-sm border-border/60">
               <CardHeader className="pb-4">
@@ -440,6 +648,38 @@ export default function ContactDetail() {
                       </a>
                     </div>
                   )}
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2">
+                    <Tag className="h-4 w-4" /> Tags
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {editTags.map((tag) => (
+                      <span key={tag} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/8 text-primary/80 border border-primary/15 font-medium">
+                        {tag}
+                        <button
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-0.5 hover:text-destructive transition-colors"
+                          aria-label={`Remove tag ${tag}`}
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={newTagInput}
+                      onChange={(e) => setNewTagInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
+                      placeholder="Add a tag…"
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleAddTag} disabled={!newTagInput.trim()}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-border">

@@ -36,6 +36,13 @@ export const ListContactsResponseItem = zod.object({
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
   birthday: zod.coerce.date().nullable(),
+  email: zod.string().nullable(),
+  phone: zod.string().nullable(),
+  linkedin: zod.string().nullable(),
+  twitter: zod.string().nullable(),
+  instagram: zod.string().nullable(),
+  address: zod.string().nullable(),
+  tags: zod.array(zod.string()).nullable(),
   archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -58,6 +65,13 @@ export const CreateContactBody = zod.object({
   lastContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   birthday: zod.string().nullish().describe("Birthday in YYYY-MM-DD format"),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  linkedin: zod.string().nullish(),
+  twitter: zod.string().nullish(),
+  instagram: zod.string().nullish(),
+  address: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
 });
 
 /**
@@ -109,6 +123,13 @@ export const GetContactResponse = zod.object({
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
   birthday: zod.coerce.date().nullable(),
+  email: zod.string().nullable(),
+  phone: zod.string().nullable(),
+  linkedin: zod.string().nullable(),
+  twitter: zod.string().nullable(),
+  instagram: zod.string().nullable(),
+  address: zod.string().nullable(),
+  tags: zod.array(zod.string()).nullable(),
   archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -133,6 +154,13 @@ export const UpdateContactBody = zod.object({
   nextContactDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   birthday: zod.string().nullish().describe("Birthday in YYYY-MM-DD format"),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  linkedin: zod.string().nullish(),
+  twitter: zod.string().nullish(),
+  instagram: zod.string().nullish(),
+  address: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
 });
 
 export const UpdateContactResponse = zod.object({
@@ -148,6 +176,13 @@ export const UpdateContactResponse = zod.object({
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
   birthday: zod.coerce.date().nullable(),
+  email: zod.string().nullable(),
+  phone: zod.string().nullable(),
+  linkedin: zod.string().nullable(),
+  twitter: zod.string().nullable(),
+  instagram: zod.string().nullable(),
+  address: zod.string().nullable(),
+  tags: zod.array(zod.string()).nullable(),
   archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -159,6 +194,25 @@ export const UpdateContactResponse = zod.object({
 export const DeleteContactParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary Get history of contact info field changes
+ */
+export const GetContactInfoHistoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetContactInfoHistoryResponseItem = zod.object({
+  id: zod.number(),
+  contactId: zod.number(),
+  field: zod.string(),
+  oldValue: zod.string().nullable(),
+  newValue: zod.string().nullable(),
+  changedAt: zod.coerce.date(),
+});
+export const GetContactInfoHistoryResponse = zod.array(
+  GetContactInfoHistoryResponseItem,
+);
 
 /**
  * @summary Archive a contact (hides from main list)
@@ -180,6 +234,13 @@ export const ArchiveContactResponse = zod.object({
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
   birthday: zod.coerce.date().nullable(),
+  email: zod.string().nullable(),
+  phone: zod.string().nullable(),
+  linkedin: zod.string().nullable(),
+  twitter: zod.string().nullable(),
+  instagram: zod.string().nullable(),
+  address: zod.string().nullable(),
+  tags: zod.array(zod.string()).nullable(),
   archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -205,6 +266,13 @@ export const UnarchiveContactResponse = zod.object({
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
   birthday: zod.coerce.date().nullable(),
+  email: zod.string().nullable(),
+  phone: zod.string().nullable(),
+  linkedin: zod.string().nullable(),
+  twitter: zod.string().nullable(),
+  instagram: zod.string().nullable(),
+  address: zod.string().nullable(),
+  tags: zod.array(zod.string()).nullable(),
   archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -230,6 +298,13 @@ export const TouchContactResponse = zod.object({
   nextContactDate: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
   birthday: zod.coerce.date().nullable(),
+  email: zod.string().nullable(),
+  phone: zod.string().nullable(),
+  linkedin: zod.string().nullable(),
+  twitter: zod.string().nullable(),
+  instagram: zod.string().nullable(),
+  address: zod.string().nullable(),
+  tags: zod.array(zod.string()).nullable(),
   archivedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

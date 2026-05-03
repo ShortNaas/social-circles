@@ -32,6 +32,13 @@ export interface Contact {
   nextContactDate: string | null;
   notes: string | null;
   birthday: string | null;
+  email: string | null;
+  phone: string | null;
+  linkedin: string | null;
+  twitter: string | null;
+  instagram: string | null;
+  address: string | null;
+  tags: string[] | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +63,13 @@ export interface CreateContactBody {
   notes?: string | null;
   /** Birthday in YYYY-MM-DD format */
   birthday?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedin?: string | null;
+  twitter?: string | null;
+  instagram?: string | null;
+  address?: string | null;
+  tags?: string[] | null;
 }
 
 export type UpdateContactBodyTier =
@@ -78,6 +92,22 @@ export interface UpdateContactBody {
   notes?: string | null;
   /** Birthday in YYYY-MM-DD format */
   birthday?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedin?: string | null;
+  twitter?: string | null;
+  instagram?: string | null;
+  address?: string | null;
+  tags?: string[] | null;
+}
+
+export interface ContactInfoHistoryItem {
+  id: number;
+  contactId: number;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
 }
 
 export interface ContactStats {

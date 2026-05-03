@@ -535,6 +535,25 @@ export default function Contacts() {
                           : "Unknown"}
                       </span>
                     </div>
+                    {contact.tags && contact.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {contact.tags.map((tag) => (
+                          <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-primary/8 text-primary/70 border border-primary/15 font-medium">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {contact.notes && (() => {
+                      const firstNote = contact.notes.split("\n\n")[0]?.trim();
+                      if (!firstNote) return null;
+                      const preview = firstNote.replace(/^\[[^\]]+\]\s*/, "").slice(0, 120);
+                      return (
+                        <p className="text-xs text-muted-foreground/70 mt-1.5 line-clamp-1 italic">
+                          {preview}{preview.length >= 120 ? "…" : ""}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:border-l sm:border-border sm:pl-4">
                     {showArchived ? (

@@ -15,9 +15,25 @@ export const contactsTable = pgTable("contacts", {
   nextContactDate: date("next_contact_date"),
   notes: text("notes"),
   birthday: date("birthday"),
+  email: text("email"),
+  phone: text("phone"),
+  linkedin: text("linkedin"),
+  twitter: text("twitter"),
+  instagram: text("instagram"),
+  address: text("address"),
+  tags: text("tags"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const contactInfoHistoryTable = pgTable("contact_info_history", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contactsTable.id, { onDelete: "cascade" }),
+  field: text("field").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertContactSchema = createInsertSchema(contactsTable).omit({
@@ -28,3 +44,4 @@ export const insertContactSchema = createInsertSchema(contactsTable).omit({
 
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contactsTable.$inferSelect;
+export type ContactInfoHistory = typeof contactInfoHistoryTable.$inferSelect;

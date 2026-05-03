@@ -38,11 +38,12 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 - `GET /api/contacts` — list contacts (exclude archived by default; `?archived=true` for archive)
 - `POST /api/contacts` — create contact
-- `PUT /api/contacts/:id` — update contact
+- `PATCH /api/contacts/:id` — update contact (email, phone, linkedin, twitter, instagram, address, tags, notes, tier, etc.)
 - `DELETE /api/contacts/:id` — delete contact
 - `POST /api/contacts/:id/touch` — mark as reached out
 - `POST /api/contacts/:id/archive` — archive contact
 - `POST /api/contacts/:id/unarchive` — restore contact
+- `GET /api/contacts/:id/info-history` — contact info field change history
 - `GET /api/contacts/stats` — tier counts (excludes archived)
 - `GET /api/contacts/due` — overdue contacts (excludes archived)
 - `GET /api/contacts/export` — CSV export (excludes archived)
@@ -54,7 +55,13 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## DB Schema (lib/db/src/schema/contacts.ts)
 
-Contacts table includes: `id`, `userId`, `name`, `tier`, `intervalDays`, `relationshipType`, `lastContactDate`, `nextContactDate`, `notes`, `birthday`, `archivedAt`, `snoozedUntil`, `createdAt`, `updatedAt`.
+**contacts table**: `id`, `userId`, `name`, `tier`, `intervalDays`, `relationshipType`, `lastContactDate`, `nextContactDate`, `notes`, `birthday`, `email`, `phone`, `linkedin`, `twitter`, `instagram`, `address`, `tags` (JSON string of string[]), `archivedAt`, `createdAt`, `updatedAt`.
+
+**contact_info_history table**: `id`, `contactId`, `field`, `oldValue`, `newValue`, `changedAt` — auto-logged whenever tracked info fields (email, phone, linkedin, twitter, instagram, address) change via PATCH.
+
+## Tags
+
+Tags are stored in the `tags` column as a JSON string (e.g. `'["mentor","friend"]'`). The API server parses/serializes this automatically. The OpenAPI/Zod types expose `tags` as `string[] | null`.
 
 ## Codegen Note
 
@@ -71,3 +78,9 @@ The `lib/api-zod` orval config uses `mode: "single"` to avoid split output. The 
 - `CRON_SECRET` — random secret for digest/cron endpoint protection
 - `DIGEST_FROM_EMAIL` — sender email (must be verified on Resend)
 - `APP_URL` — Vercel frontend URL (used in digest email links)
+
+## Frontend Features (artifacts/social-circle)
+
+- **Dashboard**: birthday-today banner, due contacts, upcoming birthdays, stats
+- **Contacts list**: health score dots (green/yellow/red), last note preview, tags badges, quick note button (MessageSquare icon), snooze, bulk actions (reach out / archive / delete)
+- **Contact detail**: interaction history timeline, contact info section (email/phone/social/address with copy-on-hover), tags (add/remove inline), contact info change history, birthday, next follow-up with iCal download
