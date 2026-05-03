@@ -19,10 +19,6 @@ import {
   UpdateContactResponse,
   TouchContactResponse,
   GetCalendarTokenResponse,
-  ArchiveContactParams,
-  ArchiveContactResponse,
-  UnarchiveContactParams,
-  UnarchiveContactResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -104,7 +100,7 @@ router.get("/contacts/export", requireAuth, wrap(async (req, res) => {
       : s;
   };
 
-  const header = ["Name", "Tier", "Relationship", "Interval (days)", "Last Contact", "Next Contact", "Birthday", "Tags", "Streak", "Notes"];
+  const header = ["Name", "Tier", "Relationship", "Interval (days)", "Last Contact", "Next Contact", "Notes"];
   const rows = contacts.map((c) => [
     escape(c.name),
     escape(c.tier),
@@ -112,9 +108,6 @@ router.get("/contacts/export", requireAuth, wrap(async (req, res) => {
     escape(c.intervalDays != null ? String(c.intervalDays) : ""),
     escape(c.lastContactDate),
     escape(c.nextContactDate),
-    escape(c.birthday),
-    escape((c.tags ?? []).join("; ")),
-    escape(String(c.streak ?? 0)),
     escape(c.notes),
   ]);
 
@@ -133,7 +126,7 @@ router.get("/contacts", requireAuth, wrap(async (req, res) => {
     return;
   }
 
-  const { tier, overdue, archived } = query.data;
+  const { tier, overdue } = query.data;
   const today = new Date().toISOString().slice(0, 10);
   const userId = getUserId(req);
 
@@ -142,13 +135,6 @@ router.get("/contacts", requireAuth, wrap(async (req, res) => {
     .from(contactsTable)
     .where(eq(contactsTable.userId, userId))
     .orderBy(asc(contactsTable.nextContactDate), asc(contactsTable.name));
-
-  // Archive filter — default: show only active (non-archived)
-  if (archived === true) {
-    contacts = contacts.filter((c) => c.archivedAt != null);
-  } else {
-    contacts = contacts.filter((c) => c.archivedAt == null);
-  }
 
   if (tier) contacts = contacts.filter((c) => c.tier === tier);
   if (overdue) contacts = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today);
@@ -167,7 +153,7 @@ router.post("/contacts", requireAuth, wrap(async (req, res) => {
   const { lastContactDate, tier, intervalDays } = parsed.data;
   const effectiveInterval = intervalDays ?? defaultIntervalDays(tier);
   const nextContactDate = lastContactDate
-    ? calcNextContactDate(effectiveInterval, new Date(lastContactDate as unknown as string))
+    ? calcNextContactDate(effectiveInterval, new Date(lastContactDate))
     : calcNextContactDate(effectiveInterval);
 
   const toDateStr = (d: Date | string | null | undefined): string | null =>
@@ -180,11 +166,10 @@ router.post("/contacts", requireAuth, wrap(async (req, res) => {
       tier: parsed.data.tier,
       intervalDays: intervalDays ?? null,
       relationshipType: parsed.data.relationshipType,
-      lastContactDate: toDateStr(lastContactDate as unknown as Date | string | null),
+      lastContactDate: toDateStr(lastContactDate),
       nextContactDate,
       notes: parsed.data.notes ?? null,
-      birthday: toDateStr(parsed.data.birthday as unknown as Date | string | null),
-      tags: (parsed.data.tags as string[] | undefined) ?? [],
+      birthday: parsed.data.birthday ?? null,
       userId: getUserId(req),
     })
     .returning();
@@ -203,16 +188,15 @@ router.get("/contacts/stats", requireAuth, wrap(async (req, res) => {
     .from(contactsTable)
     .where(eq(contactsTable.userId, userId));
 
-  const active = contacts.filter((c) => c.archivedAt == null);
-  const core = active.filter((c) => c.tier === "core").length;
-  const monthly = active.filter((c) => c.tier === "monthly").length;
-  const yearly = active.filter((c) => c.tier === "yearly").length;
-  const overdueCount = active.filter((c) => c.nextContactDate != null && c.nextContactDate <= today).length;
-  const dueThisWeek = active.filter(
+  const core = contacts.filter((c) => c.tier === "core").length;
+  const monthly = contacts.filter((c) => c.tier === "monthly").length;
+  const yearly = contacts.filter((c) => c.tier === "yearly").length;
+  const overdueCount = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today).length;
+  const dueThisWeek = contacts.filter(
     (c) => c.nextContactDate != null && c.nextContactDate > today && c.nextContactDate <= weekLater,
   ).length;
 
-  res.json(GetContactStatsResponse.parse({ total: active.length, core, monthly, yearly, overdueCount, dueThisWeek }));
+  res.json(GetContactStatsResponse.parse({ total: contacts.length, core, monthly, yearly, overdueCount, dueThisWeek }));
 }));
 
 // GET /contacts/due
@@ -227,7 +211,7 @@ router.get("/contacts/due", requireAuth, wrap(async (req, res) => {
     .orderBy(asc(contactsTable.nextContactDate));
 
   const due = contacts
-    .filter((c) => c.archivedAt == null && c.nextContactDate != null)
+    .filter((c) => c.nextContactDate != null)
     .map((c) => {
       const next = new Date(c.nextContactDate!);
       const todayDate = new Date(today);
@@ -300,7 +284,7 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
       : (existing.intervalDays ?? defaultIntervalDays(existing.tier));
     const lastDate = parsed.data.lastContactDate !== undefined ? parsed.data.lastContactDate : existing.lastContactDate;
     if (lastDate) {
-      updates.nextContactDate = calcNextContactDate(intervalDays, new Date(lastDate as unknown as string));
+      updates.nextContactDate = calcNextContactDate(intervalDays, new Date(lastDate));
     }
   }
 
@@ -363,65 +347,13 @@ router.post("/contacts/:id/touch", requireAuth, wrap(async (req, res) => {
   const effectiveInterval = existing.intervalDays ?? defaultIntervalDays(existing.tier);
   const nextContactDate = calcNextContactDate(effectiveInterval);
 
-  // Streak: increment if touched on time, reset to 1 if late
-  const isOnTime = existing.nextContactDate != null && existing.nextContactDate >= today;
-  const newStreak = isOnTime ? (existing.streak ?? 0) + 1 : 1;
-
   const [contact] = await db
     .update(contactsTable)
-    .set({ lastContactDate: today, nextContactDate, streak: newStreak, lastStreakDate: today })
+    .set({ lastContactDate: today, nextContactDate })
     .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 
   res.json(TouchContactResponse.parse(contact));
-}));
-
-// POST /contacts/:id/archive
-router.post("/contacts/:id/archive", requireAuth, wrap(async (req, res) => {
-  const params = ArchiveContactParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const userId = getUserId(req);
-
-  const [contact] = await db
-    .update(contactsTable)
-    .set({ archivedAt: new Date() })
-    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
-    .returning();
-
-  if (!contact) {
-    res.status(404).json({ error: "Contact not found" });
-    return;
-  }
-
-  res.json(ArchiveContactResponse.parse(contact));
-}));
-
-// POST /contacts/:id/unarchive
-router.post("/contacts/:id/unarchive", requireAuth, wrap(async (req, res) => {
-  const params = UnarchiveContactParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const userId = getUserId(req);
-
-  const [contact] = await db
-    .update(contactsTable)
-    .set({ archivedAt: null })
-    .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
-    .returning();
-
-  if (!contact) {
-    res.status(404).json({ error: "Contact not found" });
-    return;
-  }
-
-  res.json(UnarchiveContactResponse.parse(contact));
 }));
 
 // GET /calendar/token
@@ -458,7 +390,7 @@ router.get("/calendar/feed.ics", wrap(async (req, res) => {
   const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z/, "Z");
 
   const events = contacts
-    .filter((c) => c.archivedAt == null && c.nextContactDate)
+    .filter((c) => c.nextContactDate)
     .map((c) => {
       const dateStr = c.nextContactDate!.replace(/-/g, "");
       const uid2 = `social-circle-${c.id}-${dateStr}@socialcircle`;

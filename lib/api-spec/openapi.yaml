@@ -12,8 +12,6 @@ tags:
     description: Health operations
   - name: contacts
     description: Contact management
-  - name: interactions
-    description: Interaction log
 paths:
   /healthz:
     get:
@@ -41,11 +39,6 @@ paths:
             type: string
             enum: [core, monthly, yearly]
         - name: overdue
-          in: query
-          required: false
-          schema:
-            type: boolean
-        - name: archived
           in: query
           required: false
           schema:
@@ -191,108 +184,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Contact"
 
-  /contacts/{id}/archive:
-    post:
-      operationId: archiveContact
-      tags: [contacts]
-      summary: Archive a contact
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Archived contact
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Contact"
-
-  /contacts/{id}/unarchive:
-    post:
-      operationId: unarchiveContact
-      tags: [contacts]
-      summary: Unarchive a contact
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Unarchived contact
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Contact"
-
-  /contacts/{id}/interactions:
-    get:
-      operationId: listInteractions
-      tags: [interactions]
-      summary: List interactions for a contact
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: List of interactions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Interaction"
-    post:
-      operationId: createInteraction
-      tags: [interactions]
-      summary: Create an interaction for a contact
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateInteractionBody"
-      responses:
-        "201":
-          description: Created interaction
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Interaction"
-
-  /contacts/{id}/interactions/{interactionId}:
-    delete:
-      operationId: deleteInteraction
-      tags: [interactions]
-      summary: Delete an interaction
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: interactionId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Deleted
-
   /contacts/{id}/calendar.ics:
     get:
       operationId: getContactCalendar
@@ -370,21 +261,6 @@ components:
         notes:
           type: string
           nullable: true
-        birthday:
-          type: string
-          format: date
-          nullable: true
-        tags:
-          type: array
-          items:
-            type: string
-        streak:
-          type: integer
-          description: Consecutive on-time touch count
-        archivedAt:
-          type: string
-          format: date-time
-          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -400,10 +276,6 @@ components:
         - lastContactDate
         - nextContactDate
         - notes
-        - birthday
-        - tags
-        - streak
-        - archivedAt
         - createdAt
         - updatedAt
 
@@ -428,14 +300,6 @@ components:
         notes:
           type: string
           nullable: true
-        birthday:
-          type: string
-          format: date
-          nullable: true
-        tags:
-          type: array
-          items:
-            type: string
       required:
         - name
         - tier
@@ -465,18 +329,6 @@ components:
           nullable: true
         notes:
           type: string
-          nullable: true
-        birthday:
-          type: string
-          format: date
-          nullable: true
-        tags:
-          type: array
-          items:
-            type: string
-        archivedAt:
-          type: string
-          format: date-time
           nullable: true
 
     ContactStats:
@@ -555,46 +407,3 @@ components:
         - daysOverdue
         - createdAt
         - updatedAt
-
-    Interaction:
-      type: object
-      properties:
-        id:
-          type: integer
-        contactId:
-          type: integer
-        date:
-          type: string
-          format: date
-        type:
-          type: string
-          enum: [call, email, coffee, message, video_call, other]
-        notes:
-          type: string
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - contactId
-        - date
-        - type
-        - notes
-        - createdAt
-
-    CreateInteractionBody:
-      type: object
-      properties:
-        date:
-          type: string
-          format: date
-        type:
-          type: string
-          enum: [call, email, coffee, message, video_call, other]
-        notes:
-          type: string
-          nullable: true
-      required:
-        - date
-        - type
