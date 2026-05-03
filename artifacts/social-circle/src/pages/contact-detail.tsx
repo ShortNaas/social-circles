@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare, Archive, ArchiveRestore, Phone, Mail, Linkedin, Twitter, Instagram, MapPin, Copy, Check, Tag, Plus, X as XIcon, History } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CalendarDays, Loader2, Save, Download, User, Trash2, BellOff, MessageSquare, Archive, ArchiveRestore, Phone, Mail, Linkedin, Twitter, Instagram, MapPin, Copy, Check, History } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel, TIER_INTERVALS, defaultIntervalDays } from "@/lib/tier-utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -96,9 +96,6 @@ export default function ContactDetail() {
   const [editAddress, setEditAddress] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Tags
-  const [editTags, setEditTags] = useState<string[]>([]);
-  const [newTagInput, setNewTagInput] = useState("");
 
   const { data: contact, isLoading, error } = useGetContact(id, { 
     query: { 
@@ -128,7 +125,6 @@ export default function ContactDetail() {
       setEditTwitter(contact.twitter ?? "");
       setEditInstagram(contact.instagram ?? "");
       setEditAddress(contact.address ?? "");
-      setEditTags(contact.tags ?? []);
     }
   }, [contact, id]);
 
@@ -219,25 +215,6 @@ export default function ContactDetail() {
     navigator.clipboard.writeText(value).then(() => {
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
-    });
-  };
-
-  const handleAddTag = () => {
-    const tag = newTagInput.trim().toLowerCase();
-    if (!tag || editTags.includes(tag)) { setNewTagInput(""); return; }
-    const newTags = [...editTags, tag];
-    setEditTags(newTags);
-    setNewTagInput("");
-    updateMutation.mutate({ id, data: { tags: newTags } }, {
-      onSuccess: (data) => { queryClient.setQueryData(getGetContactQueryKey(id), data); },
-    });
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    const newTags = editTags.filter((t) => t !== tag);
-    setEditTags(newTags);
-    updateMutation.mutate({ id, data: { tags: newTags } }, {
-      onSuccess: (data) => { queryClient.setQueryData(getGetContactQueryKey(id), data); },
     });
   };
 
@@ -648,38 +625,6 @@ export default function ContactDetail() {
                       </a>
                     </div>
                   )}
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2">
-                    <Tag className="h-4 w-4" /> Tags
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {editTags.map((tag) => (
-                      <span key={tag} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/8 text-primary/80 border border-primary/15 font-medium">
-                        {tag}
-                        <button
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-0.5 hover:text-destructive transition-colors"
-                          aria-label={`Remove tag ${tag}`}
-                        >
-                          <XIcon className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      value={newTagInput}
-                      onChange={(e) => setNewTagInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
-                      placeholder="Add a tag…"
-                      className="h-7 text-xs flex-1"
-                    />
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleAddTag} disabled={!newTagInput.trim()}>
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-border">

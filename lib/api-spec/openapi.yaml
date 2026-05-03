@@ -347,11 +347,6 @@ components:
         address:
           type: string
           nullable: true
-        tags:
-          type: array
-          items:
-            type: string
-          nullable: true
         archivedAt:
           type: string
           format: date-time
@@ -378,7 +373,6 @@ components:
         - twitter
         - instagram
         - address
-        - tags
         - archivedAt
         - createdAt
         - updatedAt
@@ -425,11 +419,6 @@ components:
           nullable: true
         address:
           type: string
-          nullable: true
-        tags:
-          type: array
-          items:
-            type: string
           nullable: true
       required:
         - name
@@ -482,11 +471,6 @@ components:
           nullable: true
         address:
           type: string
-          nullable: true
-        tags:
-          type: array
-          items:
-            type: string
           nullable: true
 
     ContactInfoHistoryItem:

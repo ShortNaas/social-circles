@@ -21,7 +21,6 @@ export const contactsTable = pgTable("contacts", {
   twitter: text("twitter"),
   instagram: text("instagram"),
   address: text("address"),
-  tags: text("tags"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

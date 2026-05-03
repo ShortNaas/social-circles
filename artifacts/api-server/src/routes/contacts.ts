@@ -74,15 +74,6 @@ function intervalLabel(tier: string, intervalDays: number | null): string {
   return "every year";
 }
 
-// Parses tags from JSON string in DB to array for API responses
-function parseDbContact<T extends { tags?: string | null }>(c: T): Omit<T, "tags"> & { tags: string[] | null } {
-  let tags: string[] | null = null;
-  if (c.tags) {
-    try { tags = JSON.parse(c.tags); } catch { tags = []; }
-  }
-  return { ...c, tags };
-}
-
 // The info fields we track history for
 const TRACKED_INFO_FIELDS = ["email", "phone", "linkedin", "twitter", "instagram", "address"] as const;
 
@@ -202,7 +193,7 @@ router.get("/contacts", requireAuth, wrap(async (req, res) => {
   if (tier) contacts = contacts.filter((c) => c.tier === tier);
   if (overdue) contacts = contacts.filter((c) => c.nextContactDate != null && c.nextContactDate <= today);
 
-  res.json(ListContactsResponse.parse(contacts.map(parseDbContact)));
+  res.json(ListContactsResponse.parse(contacts.map((c) => c)));
 }));
 
 // POST /contacts
@@ -237,7 +228,7 @@ router.post("/contacts", requireAuth, wrap(async (req, res) => {
     })
     .returning();
 
-  res.status(201).json(GetContactResponse.parse(parseDbContact(contact)));
+  res.status(201).json(GetContactResponse.parse(contact));
 }));
 
 // GET /contacts/stats
@@ -284,7 +275,7 @@ router.get("/contacts/due", requireAuth, wrap(async (req, res) => {
     .filter((c) => c.daysOverdue >= -7)
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
-  res.json(GetDueContactsResponse.parse(due.map(parseDbContact)));
+  res.json(GetDueContactsResponse.parse(due.map((c) => c)));
 }));
 
 // GET /contacts/:id
@@ -305,7 +296,7 @@ router.get("/contacts/:id", requireAuth, wrap(async (req, res) => {
     return;
   }
 
-  res.json(GetContactResponse.parse(parseDbContact(contact)));
+  res.json(GetContactResponse.parse(contact));
 }));
 
 // PATCH /contacts/:id
@@ -336,11 +327,6 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
 
   const updates: Record<string, unknown> = { ...parsed.data };
 
-  // Serialize tags array to JSON string for storage
-  if (parsed.data.tags !== undefined) {
-    updates.tags = parsed.data.tags != null ? JSON.stringify(parsed.data.tags) : null;
-  }
-
   const tierChanged = parsed.data.tier != null;
   const intervalChanged = parsed.data.intervalDays !== undefined;
   const lastDateChanged = parsed.data.lastContactDate !== undefined;
@@ -358,7 +344,7 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
 
   // Guard: if nothing to update, return existing contact as-is
   if (Object.keys(updates).length === 0) {
-    res.json(UpdateContactResponse.parse(parseDbContact(existing)));
+    res.json(UpdateContactResponse.parse(existing));
     return;
   }
 
@@ -389,7 +375,7 @@ router.patch("/contacts/:id", requireAuth, wrap(async (req, res) => {
     await db.insert(contactInfoHistoryTable).values(historyEntries);
   }
 
-  res.json(UpdateContactResponse.parse(parseDbContact(contact)));
+  res.json(UpdateContactResponse.parse(contact));
 }));
 
 // DELETE /contacts/:id
@@ -443,7 +429,7 @@ router.post("/contacts/:id/touch", requireAuth, wrap(async (req, res) => {
     .where(and(eq(contactsTable.id, params.data.id), eq(contactsTable.userId, userId)))
     .returning();
 
-  res.json(TouchContactResponse.parse(parseDbContact(contact)));
+  res.json(TouchContactResponse.parse(contact));
 }));
 
 // POST /contacts/:id/archive
@@ -463,7 +449,7 @@ router.post("/contacts/:id/archive", requireAuth, wrap(async (req, res) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-  res.json(GetContactResponse.parse(parseDbContact(contact)));
+  res.json(GetContactResponse.parse(contact));
 }));
 
 // POST /contacts/:id/unarchive
@@ -483,7 +469,7 @@ router.post("/contacts/:id/unarchive", requireAuth, wrap(async (req, res) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-  res.json(GetContactResponse.parse(parseDbContact(contact)));
+  res.json(GetContactResponse.parse(contact));
 }));
 
 // GET /contacts/:id/info-history

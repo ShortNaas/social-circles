@@ -38,7 +38,6 @@ export interface Contact {
   twitter: string | null;
   instagram: string | null;
   address: string | null;
-  tags: string[] | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -69,7 +68,6 @@ export interface CreateContactBody {
   twitter?: string | null;
   instagram?: string | null;
   address?: string | null;
-  tags?: string[] | null;
 }
 
 export type UpdateContactBodyTier =
@@ -98,7 +96,6 @@ export interface UpdateContactBody {
   twitter?: string | null;
   instagram?: string | null;
   address?: string | null;
-  tags?: string[] | null;
 }
 
 export interface ContactInfoHistoryItem {
