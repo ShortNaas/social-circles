@@ -3,6 +3,7 @@ import { useUpdateContact, getListContactsQueryKey, getGetDueContactsQueryKey, g
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { BellOff, Loader2 } from "lucide-react";
+import { formatShortDate } from "@/lib/date-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -104,7 +105,7 @@ export function SnoozePopover({ contactId, contactName, snoozedUntil }: SnoozePo
         {isCurrentlySnoozed && (
           <div className="mb-2.5 pb-2.5 border-b border-border">
             <p className="text-xs text-amber-600 font-medium mb-1.5">
-              Snoozed until {new Date(snoozedUntil! + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              Snoozed until {formatShortDate(snoozedUntil)}
             </p>
             <Button
               variant="outline"

@@ -47,7 +47,7 @@ import {
   MessageSquare,
   BellOff,
 } from "lucide-react";
-import { formatRelativeDate } from "@/lib/date-utils";
+import { formatRelativeDate, formatShortDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -521,7 +521,7 @@ export default function Contacts() {
                       {contact.snoozedUntil && contact.snoozedUntil >= new Date().toISOString().slice(0, 10) && (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-medium shrink-0">
                           <BellOff className="h-3 w-3" />
-                          Until {new Date(contact.snoozedUntil + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          Until {formatShortDate(contact.snoozedUntil)}
                         </span>
                       )}
                     </div>

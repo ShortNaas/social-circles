@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { CalendarClock, AlertCircle, ArrowRight, CheckCircle2, User, Clock, PartyPopper } from "lucide-react";
+import { CalendarClock, AlertCircle, ArrowRight, CheckCircle2, User, Clock, PartyPopper, Flame } from "lucide-react";
 import { formatUrgency, formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -143,6 +143,58 @@ export default function Dashboard() {
           </>
         ) : null}
       </div>
+
+      {(() => {
+        const neglected = dueContacts?.filter((c) => c.daysOverdue >= 30).slice(0, 5) ?? [];
+        if (neglected.length === 0) return null;
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-serif font-semibold flex items-center gap-2">
+                <Flame className="h-5 w-5 text-destructive" />
+                Needs Attention
+              </h2>
+              <span className="text-xs text-muted-foreground">Overdue by 30+ days</span>
+            </div>
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 divide-y divide-destructive/10 overflow-hidden">
+              {neglected.map((contact) => (
+                <div key={contact.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div className="shrink-0 w-2 h-2 rounded-full bg-destructive" />
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/contacts/${contact.id}`} className="font-medium hover:text-primary hover:underline truncate block">
+                      {contact.name}
+                    </Link>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Last contacted: {formatRelativeDate(contact.lastContactDate)}
+                      {contact.notes && (() => {
+                        const preview = contact.notes.split("\n\n")[0]?.trim().replace(/^\[[^\]]+\]\s*/, "").slice(0, 60);
+                        return preview ? <> · <span className="italic">{preview}{preview.length >= 60 ? "…" : ""}</span></> : null;
+                      })()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className={getTierColor(contact.tier)}>
+                      {getTierLabel(contact.tier)}
+                    </Badge>
+                    <span className="text-xs font-semibold text-destructive whitespace-nowrap">
+                      {contact.daysOverdue}d overdue
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
+                      onClick={() => setPendingTouch({ id: contact.id, name: contact.name, notes: contact.notes })}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                      Reached Out
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
