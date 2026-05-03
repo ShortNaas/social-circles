@@ -25,7 +25,16 @@ export default function Home() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
         <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="inline-flex items-center gap-2 text-sm font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
-            Based on Derek Sivers' "hundreds" method
+            Based on Derek Sivers'{" "}
+            <a
+              href="https://sive.rs/hundreds"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-primary/80"
+            >
+              "hundreds"
+            </a>{" "}
+            method
           </div>
 
           <h1 className="text-5xl sm:text-6xl font-serif font-bold text-foreground tracking-tight leading-tight">
