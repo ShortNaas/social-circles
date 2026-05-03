@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { CalendarClock, AlertCircle, ArrowRight, CheckCircle2, User, Clock } from "lucide-react";
+import { CalendarClock, AlertCircle, ArrowRight, CheckCircle2, User, Clock, PartyPopper } from "lucide-react";
 import { formatUrgency, formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +34,17 @@ interface PendingTouch {
   notes: string | null;
 }
 
+function getHealthDot(nextContactDate: string | null): { color: string; label: string } {
+  if (!nextContactDate) return { color: "bg-muted-foreground/40", label: "No schedule" };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const next = new Date(nextContactDate + "T00:00:00");
+  const diff = Math.floor((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { color: "bg-destructive", label: "Overdue" };
+  if (diff <= 7) return { color: "bg-amber-400", label: "Due soon" };
+  return { color: "bg-emerald-500", label: "On track" };
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetContactStats();
   const { data: dueContacts, isLoading: dueLoading } = useGetDueContacts();
@@ -41,6 +52,7 @@ export default function Dashboard() {
   const [pendingTouch, setPendingTouch] = useState<PendingTouch | null>(null);
 
   const upcomingBirthdays = allContacts ? getUpcomingBirthdays(allContacts) : [];
+  const todayBirthdays = upcomingBirthdays.filter((c) => c.daysUntil === 0);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -48,6 +60,34 @@ export default function Dashboard() {
         <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground mt-2 text-lg">A gentle overview of your relationships.</p>
       </div>
+
+      {todayBirthdays.length > 0 && (
+        <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 px-5 py-4 flex items-start gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-xl">
+            🎂
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-amber-900 flex items-center gap-2">
+              <PartyPopper className="h-4 w-4" />
+              {todayBirthdays.length === 1
+                ? `It's ${todayBirthdays[0].name}'s birthday today!`
+                : `${todayBirthdays.map((c) => c.name).join(" & ")} have birthdays today!`}
+            </p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Don't forget to reach out and wish them well.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {todayBirthdays.map((c) => (
+              <Link key={c.id} href={`/contacts/${c.id}`}>
+                <button className="text-sm font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2">
+                  Open
+                </button>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statsLoading ? (

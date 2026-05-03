@@ -23,6 +23,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
   CalendarClock,
   CheckCircle2,
   User,
@@ -36,6 +44,7 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
+  MessageSquare,
 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/date-utils";
 import { getTierColor, getTierLabel } from "@/lib/tier-utils";
@@ -53,6 +62,17 @@ interface PendingTouch {
   notes: string | null;
 }
 
+function getHealthDot(nextContactDate: string | null): { color: string; label: string } {
+  if (!nextContactDate) return { color: "bg-muted-foreground/40", label: "No schedule" };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const next = new Date(nextContactDate + "T00:00:00");
+  const diff = Math.floor((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { color: "bg-destructive", label: "Overdue" };
+  if (diff <= 7) return { color: "bg-amber-400", label: "Due soon" };
+  return { color: "bg-emerald-500", label: "On track" };
+}
+
 export default function Contacts() {
   const [filterTier, setFilterTier] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
@@ -63,6 +83,9 @@ export default function Contacts() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [quickNoteContact, setQuickNoteContact] = useState<{ id: number; name: string; notes: string | null } | null>(null);
+  const [quickNoteText, setQuickNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { getToken } = useAuth();
@@ -288,6 +311,31 @@ export default function Contacts() {
     }
   }
 
+  async function saveQuickNote() {
+    if (!quickNoteContact || !quickNoteText.trim() || savingNote) return;
+    setSavingNote(true);
+    try {
+      const token = await getToken();
+      const date = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      const newNotes = `[${date}] ${quickNoteText.trim()}${quickNoteContact.notes ? `\n\n${quickNoteContact.notes}` : ""}`;
+      const res = await fetch(`/api/contacts/${quickNoteContact.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ notes: newNotes }),
+      });
+      if (!res.ok) throw new Error("Failed to save note");
+      await queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+      toast({ title: "Note saved", description: `Added to ${quickNoteContact.name}'s notes.` });
+      setQuickNoteContact(null);
+      setQuickNoteText("");
+    } catch {
+      toast({ title: "Couldn't save note", variant: "destructive" });
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
   async function handleBulkDelete() {
     if (selectedIds.size === 0 || bulkLoading) return;
     setBulkLoading(true);
@@ -434,6 +482,7 @@ export default function Contacts() {
         ) : filteredContacts && filteredContacts.length > 0 ? (
           filteredContacts.map((contact) => {
             const isSelected = selectedIds.has(contact.id);
+            const health = getHealthDot(contact.nextContactDate);
             return (
               <Card
                 key={contact.id}
@@ -455,6 +504,10 @@ export default function Contacts() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                      <span
+                        title={health.label}
+                        className={`shrink-0 w-2.5 h-2.5 rounded-full ${health.color}`}
+                      />
                       <Link
                         href={`/contacts/${contact.id}`}
                         className="text-lg font-medium hover:text-primary hover:underline truncate"
@@ -522,6 +575,18 @@ export default function Contacts() {
                         >
                           <CheckCircle2 className="h-4 w-4" />
                           Reached Out
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Quick note"
+                          className="h-9 w-9 p-0 shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/5"
+                          onClick={() => {
+                            setQuickNoteContact({ id: contact.id, name: contact.name, notes: contact.notes });
+                            setQuickNoteText("");
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4" />
                         </Button>
                         <SnoozePopover
                           contactId={contact.id}
@@ -648,6 +713,50 @@ export default function Contacts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!quickNoteContact}
+        onOpenChange={(v) => { if (!v) { setQuickNoteContact(null); setQuickNoteText(""); } }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              Quick note — {quickNoteContact?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            autoFocus
+            placeholder="What's worth remembering about this interaction?"
+            className="min-h-[120px] resize-none text-sm"
+            value={quickNoteText}
+            onChange={(e) => setQuickNoteText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveQuickNote();
+            }}
+          />
+          <p className="text-xs text-muted-foreground -mt-1">
+            Will be prepended to existing notes with today's date. Press ⌘Enter to save.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setQuickNoteContact(null); setQuickNoteText(""); }}
+              disabled={savingNote}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveQuickNote}
+              disabled={!quickNoteText.trim() || savingNote}
+              className="gap-2"
+            >
+              {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+              {savingNote ? "Saving…" : "Save note"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
