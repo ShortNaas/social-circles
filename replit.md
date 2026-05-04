@@ -38,7 +38,7 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 - `GET /api/contacts` — list contacts (exclude archived by default; `?archived=true` for archive)
 - `POST /api/contacts` — create contact
-- `PATCH /api/contacts/:id` — update contact (email, phone, linkedin, twitter, instagram, address, tags, notes, tier, etc.)
+- `PATCH /api/contacts/:id` — update contact (email, phone, telegram, linkedin,  twitter, instagram, address, tags, notes, tier, etc.)
 - `DELETE /api/contacts/:id` — delete contact
 - `POST /api/contacts/:id/touch` — mark as reached out
 - `POST /api/contacts/:id/archive` — archive contact
@@ -55,9 +55,9 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## DB Schema (lib/db/src/schema/contacts.ts)
 
-**contacts table**: `id`, `userId`, `name`, `tier`, `intervalDays`, `relationshipType`, `lastContactDate`, `nextContactDate`, `notes`, `birthday`, `email`, `phone`, `linkedin`, `twitter`, `instagram`, `address`, `tags` (JSON string of string[]), `archivedAt`, `createdAt`, `updatedAt`.
+**contacts table**: `id`, `userId`, `name`, `tier`, `intervalDays`, `relationshipType`, `lastContactDate`, `nextContactDate`, `notes`, `birthday`, `email`, `phone`, `telegram`, `linkedin`, `twitter`, `instagram`, `address`, `tags` (JSON string of string[]), `archivedAt`, `createdAt`, `updatedAt`.
 
-**contact_info_history table**: `id`, `contactId`, `field`, `oldValue`, `newValue`, `changedAt` — auto-logged whenever tracked info fields (email, phone, linkedin, twitter, instagram, address) change via PATCH.
+**contact_info_history table**: `id`, `contactId`, `field`, `oldValue`, `newValue`, `changedAt` — auto-logged whenever tracked info fields (email, phone, telegram, linkedin, twitter, instagram, address) change via PATCH.
 
 ## Tags
 

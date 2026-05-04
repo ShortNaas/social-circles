@@ -34,6 +34,7 @@ export interface Contact {
   birthday: string | null;
   email: string | null;
   phone: string | null;
+  telegram: string | null;
   linkedin: string | null;
   twitter: string | null;
   instagram: string | null;
@@ -65,6 +66,7 @@ export interface CreateContactBody {
   birthday?: string | null;
   email?: string | null;
   phone?: string | null;
+  telegram?: string | null;
   linkedin?: string | null;
   twitter?: string | null;
   instagram?: string | null;
@@ -93,6 +95,7 @@ export interface UpdateContactBody {
   birthday?: string | null;
   email?: string | null;
   phone?: string | null;
+  telegram?: string | null;
   linkedin?: string | null;
   twitter?: string | null;
   instagram?: string | null;

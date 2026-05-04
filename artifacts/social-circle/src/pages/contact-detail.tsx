@@ -38,6 +38,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// for telegram since lucide-react doesn't support it
+const TelegramIcon = ({ className = "" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.51 14.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.306.969z"/>
+  </svg>
+);
+
+
 interface NoteEntry {
   date: string;
   content: string;
@@ -90,6 +98,7 @@ export default function ContactDetail() {
   const [isEditingContactInfo, setIsEditingContactInfo] = useState(false);
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editTelegram, setEditTelegram] = useState("");
   const [editLinkedin, setEditLinkedin] = useState("");
   const [editTwitter, setEditTwitter] = useState("");
   const [editInstagram, setEditInstagram] = useState("");
@@ -121,6 +130,7 @@ export default function ContactDetail() {
       setBdayValue(contact.birthday ?? "");
       setEditEmail(contact.email ?? "");
       setEditPhone(contact.phone ?? "");
+      setEditTelegram(contact.telegram ?? "");
       setEditLinkedin(contact.linkedin ?? "");
       setEditTwitter(contact.twitter ?? "");
       setEditInstagram(contact.instagram ?? "");
@@ -196,6 +206,7 @@ export default function ContactDetail() {
       data: {
         email: editEmail.trim() || null,
         phone: editPhone.trim() || null,
+        telegram: editTelegram.trim() || null,
         linkedin: editLinkedin.trim() || null,
         twitter: editTwitter.trim() || null,
         instagram: editInstagram.trim() || null,
@@ -464,6 +475,7 @@ export default function ContactDetail() {
                     setIsEditingContactInfo(false);
                     setEditEmail(contact.email ?? "");
                     setEditPhone(contact.phone ?? "");
+                    setEditTelegram(contact.telegram ?? "");
                     setEditLinkedin(contact.linkedin ?? "");
                     setEditTwitter(contact.twitter ?? "");
                     setEditInstagram(contact.instagram ?? "");
@@ -482,6 +494,7 @@ export default function ContactDetail() {
                   {[
                     { label: "Email", value: editEmail, set: setEditEmail, placeholder: "name@example.com", icon: <Mail className="h-4 w-4 text-muted-foreground" /> },
                     { label: "Phone", value: editPhone, set: setEditPhone, placeholder: "+1 555 000 0000", icon: <Phone className="h-4 w-4 text-muted-foreground" /> },
+                    {label: "Telegram", value: editTelegram, set: setEditTelegram, placeholder: "@username", icon: <TelegramIcon className="h-4 w-4 text-muted-foreground"/>},
                     { label: "LinkedIn", value: editLinkedin, set: setEditLinkedin, placeholder: "linkedin.com/in/username", icon: <Linkedin className="h-4 w-4 text-muted-foreground" /> },
                     { label: "Twitter / X", value: editTwitter, set: setEditTwitter, placeholder: "@username", icon: <Twitter className="h-4 w-4 text-muted-foreground" /> },
                     { label: "Instagram", value: editInstagram, set: setEditInstagram, placeholder: "@username", icon: <Instagram className="h-4 w-4 text-muted-foreground" /> },
@@ -500,6 +513,7 @@ export default function ContactDetail() {
                 const fields = [
                   { label: "Email", value: contact.email, icon: <Mail className="h-4 w-4 text-muted-foreground shrink-0" />, key: "email" },
                   { label: "Phone", value: contact.phone, icon: <Phone className="h-4 w-4 text-muted-foreground shrink-0" />, key: "phone" },
+                  {label: "Telegram", value: contact.telegram, icon: <TelegramIcon className="h-4 w-4 text-muted-foreground shrink-0"/>, key: "telegram"},
                   { label: "LinkedIn", value: contact.linkedin, icon: <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />, key: "linkedin" },
                   { label: "Twitter / X", value: contact.twitter, icon: <Twitter className="h-4 w-4 text-muted-foreground shrink-0" />, key: "twitter" },
                   { label: "Instagram", value: contact.instagram, icon: <Instagram className="h-4 w-4 text-muted-foreground shrink-0" />, key: "instagram" },
@@ -557,7 +571,7 @@ export default function ContactDetail() {
               <CardContent className="p-6">
                 <div className="space-y-3">
                   {infoHistory.map((entry) => {
-                    const fieldLabel: Record<string, string> = { email: "Email", phone: "Phone", linkedin: "LinkedIn", twitter: "Twitter", instagram: "Instagram", address: "Address" };
+                    const fieldLabel: Record<string, string> = { email: "Email", phone: "Phone", telegram: "telegram", linkedin: "LinkedIn", twitter: "Twitter", instagram: "Instagram", address: "Address" };
                     return (
                       <div key={entry.id} className="flex gap-3 text-sm">
                         <div className="shrink-0 w-2 h-2 rounded-full bg-muted-foreground/40 mt-2" />

@@ -17,6 +17,7 @@ export const contactsTable = pgTable("contacts", {
   birthday: date("birthday"),
   email: text("email"),
   phone: text("phone"),
+  telegram: text("telegram"),
   linkedin: text("linkedin"),
   twitter: text("twitter"),
   instagram: text("instagram"),

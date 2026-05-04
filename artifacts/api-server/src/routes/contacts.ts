@@ -75,7 +75,7 @@ function intervalLabel(tier: string, intervalDays: number | null): string {
 }
 
 // The info fields we track history for
-const TRACKED_INFO_FIELDS = ["email", "phone", "linkedin", "twitter", "instagram", "address"] as const;
+const TRACKED_INFO_FIELDS = ["email", "phone", "telegram", "linkedin", "twitter", "instagram", "address"] as const;
 
 function getCalendarFeedToken(userId: string): string {
   const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret";
